@@ -1,0 +1,11 @@
+{
+  "name": "b2b-distributor-ordering-system",
+  "version": "1.0.0",
+  "description": "B2B Distributor Ordering System with Admin Portal & Mobile App Simulator",
+  "scripts": {
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm run dev",
+    "start": "npm run backend",
+    "dev": "npm run backend & npm run frontend"
+  }
+}

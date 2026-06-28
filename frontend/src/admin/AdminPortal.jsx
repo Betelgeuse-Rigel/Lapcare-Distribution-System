@@ -1,0 +1,1774 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  LayoutDashboard, UserCheck, Users, ShieldAlert,
+  ShoppingBag, HelpCircle, Key, Plus, FileText, CheckCircle, 
+  XCircle, Edit, DollarSign, Settings, Download, Trash2
+} from 'lucide-react';
+
+export default function AdminPortal({ onNotification }) {
+  // Authentication State
+  const [token, setToken] = useState(localStorage.getItem('admin_token'));
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  
+  // Dashboard & Navigation States
+  const [activeSubTab, setActiveSubTab] = useState('dashboard');
+  const [dashboardData, setDashboardData] = useState(null);
+
+  // Entities Data
+  const [retailers, setRetailers] = useState([]);
+  const [salesmen, setSalesmen] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [dues, setDues] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [paymentConfigs, setPaymentConfigs] = useState([]);
+
+  // Modals & Forms States
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [retailerModalOpen, setRetailerModalOpen] = useState(false);
+  const [salesmanModalOpen, setSalesmanModalOpen] = useState(false);
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [targetModalOpen, setTargetModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+  // Form payload states
+  const [retailerForm, setRetailerForm] = useState({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
+  const [salesmanForm, setSalesmanForm] = useState({ name: '', mobileNumber: '', email: '', password: '' });
+  const [productForm, setProductForm] = useState({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false });
+  const [stockForm, setStockForm] = useState({ productId: '', quantity: 0, reason: '' });
+  const [targetForm, setTargetForm] = useState({ salesmanId: '', targetOrders: 0, targetRevenue: 0, targetDuesCollected: 0 });
+  const [paymentForm, setPaymentForm] = useState({ dueId: '', amountReceived: 0, note: '' });
+  
+  const [editingRetailerId, setEditingRetailerId] = useState(null);
+  const [editingSalesmanId, setEditingSalesmanId] = useState(null);
+  const [editingProductId, setEditingProductId] = useState(null);
+
+  const [creditApprovalNote, setCreditApprovalNote] = useState('');
+
+  // Config parameters
+  const [codCharge, setCodCharge] = useState(50);
+  const [due7Rate, setDue7Rate] = useState(1);
+  const [due15Rate, setDue15Rate] = useState(2);
+
+  // Load backend data if authenticated
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('admin_token', token);
+      fetchDashboard();
+      fetchRetailers();
+      fetchSalesmen();
+      fetchProducts();
+      fetchOrders();
+      fetchDues();
+      fetchCategories();
+      fetchPaymentConfigs();
+    } else {
+      localStorage.removeItem('admin_token');
+    }
+  }, [token]);
+
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/dashboard', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardData(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchRetailers = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/retailers', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRetailers(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchSalesmen = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/salesmen', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSalesmen(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/orders', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchDues = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/dues', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDues(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/products/categories', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchPaymentConfigs = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/payment-config', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentConfigs(data);
+        const cod = data.find(c => c.paymentType === 'cod');
+        const due7 = data.find(c => c.paymentType === 'due_7');
+        const due15 = data.find(c => c.paymentType === 'due_15');
+        if (cod) setCodCharge(parseFloat(cod.flatCharge));
+        if (due7) setDue7Rate(parseFloat(due7.percentageRate));
+        if (due15) setDue15Rate(parseFloat(due15.percentageRate));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ==========================================
+  // AUTH FLOW
+  // ==========================================
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToken(data.token);
+        onNotification('success', 'Admin login successful');
+      } else {
+        onNotification('error', data.error || 'Access denied');
+      }
+    } catch (err) {
+      onNotification('error', 'Database connection failed');
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    onNotification('info', 'Admin logged out');
+  };
+
+  // ==========================================
+  // CREDIT QUEUE ACTIONS
+  // ==========================================
+  const handleApproveCredit = async (orderId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/orders/${orderId}/approve-credit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ note: creditApprovalNote })
+      });
+      if (res.ok) {
+        onNotification('success', 'Credit limit order approved successfully!');
+        setCreditApprovalNote('');
+        fetchOrders();
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Operation failed');
+    }
+  };
+
+  const handleRejectCredit = async (orderId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/orders/${orderId}/reject-credit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ note: creditApprovalNote })
+      });
+      if (res.ok) {
+        onNotification('warning', 'Order credit rejected and cancelled.');
+        setCreditApprovalNote('');
+        fetchOrders();
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Operation failed');
+    }
+  };
+
+  // ==========================================
+  // RETAILER CRUD ACTIONS
+  // ==========================================
+  const handleSaveRetailer = async (e) => {
+    e.preventDefault();
+    const payload = { ...retailerForm };
+    if (!payload.assignedSalesmanId) delete payload.assignedSalesmanId;
+    
+    const method = editingRetailerId ? 'PUT' : 'POST';
+    const url = editingRetailerId 
+      ? `http://localhost:5000/api/admin/retailers/${editingRetailerId}` 
+      : 'http://localhost:5000/api/admin/retailers';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        onNotification('success', editingRetailerId ? 'Retailer updated' : 'Retailer created successfully');
+        setRetailerModalOpen(false);
+        setEditingRetailerId(null);
+        setRetailerForm({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
+        fetchRetailers();
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to save retailer');
+    }
+  };
+
+  // ==========================================
+  // SALESMAN CRUD ACTIONS
+  // ==========================================
+  const handleSaveSalesman = async (e) => {
+    e.preventDefault();
+    const method = editingSalesmanId ? 'PUT' : 'POST';
+    const url = editingSalesmanId 
+      ? `http://localhost:5000/api/admin/salesmen/${editingSalesmanId}` 
+      : 'http://localhost:5000/api/admin/salesmen';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(salesmanForm)
+      });
+      if (res.ok) {
+        onNotification('success', editingSalesmanId ? 'Salesman updated' : 'Salesman registered successfully');
+        setSalesmanModalOpen(false);
+        setEditingSalesmanId(null);
+        setSalesmanForm({ name: '', mobileNumber: '', email: '', password: '' });
+        fetchSalesmen();
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to save salesman');
+    }
+  };
+
+  const handleSaveTargets = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/salesmen/${targetForm.salesmanId}/targets`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(targetForm)
+      });
+      if (res.ok) {
+        onNotification('success', 'Monthly performance targets configured');
+        setTargetModalOpen(false);
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to save targets');
+    }
+  };
+
+  // ==========================================
+  // PRODUCTS CRUD & STOCK ADJUSTMENTS
+  // ==========================================
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    const method = editingProductId ? 'PUT' : 'POST';
+    const url = editingProductId 
+      ? `http://localhost:5000/api/admin/products/${editingProductId}` 
+      : 'http://localhost:5000/api/admin/products';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(productForm)
+      });
+      if (res.ok) {
+        onNotification('success', editingProductId ? 'Product details updated' : 'Product created in inventory');
+        setProductModalOpen(false);
+        setEditingProductId(null);
+        setProductForm({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false });
+        fetchProducts();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to save product');
+    }
+  };
+
+  const handleAdjustStock = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/products/${stockForm.productId}/stock`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(stockForm)
+      });
+      if (res.ok) {
+        onNotification('success', 'Product stock level adjusted and logged');
+        setStockModalOpen(false);
+        fetchProducts();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to adjust stock');
+    }
+  };
+
+  // ==========================================
+  // DUES COLLECTION
+  // ==========================================
+  const handleRecordPayment = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/dues/${paymentForm.dueId}/record-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(paymentForm)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        onNotification('success', 'Due payment transaction successfully recorded');
+        setPaymentModalOpen(false);
+        fetchDues();
+        fetchRetailers();
+        fetchDashboard();
+      } else {
+        onNotification('error', data.error || 'Payment recording failed');
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to connect to database');
+    }
+  };
+
+  // ==========================================
+  // CONFIG SURCHARGES
+  // ==========================================
+  const handleSaveConfigs = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/payment-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          configs: [
+            { paymentType: 'cod', flatCharge: codCharge },
+            { paymentType: 'due_7', percentageRate: due7Rate },
+            { paymentType: 'due_15', percentageRate: due15Rate }
+          ]
+        })
+      });
+      if (res.ok) {
+        onNotification('success', 'Surcharges and configs saved');
+        fetchPaymentConfigs();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to save configurations');
+    }
+  };
+
+  // CRON OVERDUE CHECK TRIGGER
+  const triggerOverdueCheck = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/cron/check-overdue', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        onNotification('info', `Cron complete: Marked ${data.count} bills as Overdue.`);
+        fetchDues();
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to trigger cron');
+    }
+  };
+
+  // Change order shipping status
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        onNotification('success', `Order status updated to ${newStatus}`);
+        fetchOrders();
+        fetchDues();
+        fetchRetailers();
+        fetchDashboard();
+      }
+    } catch (err) {
+      onNotification('error', 'Status transition failed');
+    }
+  };
+
+  // Login view if not authenticated
+  if (!token) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+        padding: '20px'
+      }}>
+        <form 
+          onSubmit={handleLogin}
+          className="card" 
+          style={{ width: '100%', maxWidth: '360px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid #334155', background: '#1e293b', boxShadow: 'var(--shadow-xl)' }}
+        >
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ color: 'white', fontSize: '1.25rem', fontWeight: 800 }}>ADMIN PORTAL</h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px' }}>BISWAS DISTRIBUTION HEAD OFFICE</p>
+          </div>
+
+          <div className="form-group">
+            <label style={{ color: '#cbd5e1' }}>Admin Email</label>
+            <input 
+              type="email" 
+              placeholder="admin@company.com" 
+              className="form-control"
+              style={{ background: '#0f172a', border: '1px solid #475569', color: 'white' }}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label style={{ color: '#cbd5e1' }}>Security Password</label>
+            <input 
+              type="password" 
+              placeholder="••••••••" 
+              className="form-control"
+              style={{ background: '#0f172a', border: '1px solid #475569', color: 'white' }}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '10px', fontWeight: 'bold' }}
+          >
+            Authenticate & Access
+          </button>
+          
+          <div style={{ color: '#94a3b8', fontSize: '0.65rem', textAlign: 'center', marginTop: '6px' }}>
+            Hint: admin@company.com / Admin@123
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // Loading indicator for main screens
+  if (!dashboardData) {
+    return <div style={{ color: 'white', padding: '40px', textAlign: 'center' }}>Loading admin dashboard metrics...</div>;
+  }
+
+  const { kpis, highestOutstandingRetailers, topRetailers, inactiveRetailers, salesmanPerformances } = dashboardData;
+
+  return (
+    <div style={{ display: 'flex', height: 'calc(100vh - 54px)', background: 'var(--bg-main)' }}>
+      
+      {/* Left Sidebar navigation */}
+      <div style={{
+        width: '240px',
+        background: 'white',
+        borderRight: '1px solid var(--border-color)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '16px 0'
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'credit', label: 'Credit approvals', icon: ShieldAlert, badge: kpis.pendingApprovalsCount },
+            { id: 'retailers', label: 'Retailers list', icon: Users },
+            { id: 'salesmen', label: 'Salesmen tracking', icon: UserCheck },
+            { id: 'products', label: 'Product catalog', icon: ShoppingBag },
+            { id: 'orders', label: 'Orders list', icon: FileText },
+            { id: 'dues', label: 'Account receivables', icon: DollarSign },
+            { id: 'config', label: 'General configs', icon: Settings },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 20px',
+                  background: isActive ? 'var(--primary-light)' : 'none',
+                  border: 'none',
+                  borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                  color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: isActive ? 600 : 500,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'var(--transition-fast)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Icon size={18} />
+                  <span>{tab.label}</span>
+                </div>
+                {tab.badge > 0 && (
+                  <span style={{
+                    background: 'var(--danger)', color: 'white', fontSize: '0.65rem',
+                    padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold'
+                  }}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Logout bottom */}
+        <div style={{ padding: '0 20px' }}>
+          <button 
+            onClick={handleLogout}
+            className="btn btn-outline"
+            style={{ width: '100%', fontSize: '0.8rem', justifyContent: 'center' }}
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {/* Main Panel Content Area */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        
+        {/* VIEW 1: DASHBOARD */}
+        {activeSubTab === 'dashboard' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* KPI Cards row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>TODAY'S ORDERS</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{kpis.todayOrdersCount}</span>
+              </div>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>TODAY'S REVENUE</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>₹{parseFloat(kpis.todayOrdersValue).toLocaleString()}</span>
+              </div>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderLeft: '4px solid var(--danger)' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>PENDING APPROVAL</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--danger)' }}>{kpis.pendingApprovalsCount}</span>
+              </div>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>ACTIVE DUES</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--warning)' }}>₹{parseFloat(kpis.totalActiveDues).toLocaleString()}</span>
+              </div>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderLeft: '4px solid var(--danger)' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>OVERDUE ACCOUNTS</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--danger)' }}>₹{parseFloat(kpis.totalOverdueDues).toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <div className="card" style={{ padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Ledger Maintenance Tasks</strong>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Scan and trigger late payments to 'Overdue' status and push push alert notifications to mobile applications.</p>
+              </div>
+              <button onClick={triggerOverdueCheck} className="btn btn-primary" style={{ fontSize: '0.8rem' }}>
+                ⏰ Run Overdue Batch Scan
+              </button>
+            </div>
+
+            {/* Salesmen Performance trackers */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>Salesman Monthly Targets Progress</h3>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '10px 0' }}>Salesman Name</th>
+                    <th>Orders Target</th>
+                    <th>Revenue Target</th>
+                    <th>Dues Target</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesmanPerformances.map(sp => {
+                    const ordersPct = sp.targets.orders > 0 ? (sp.actual.orders / sp.targets.orders) * 100 : 100;
+                    const revenuePct = sp.targets.revenue > 0 ? (sp.actual.revenue / sp.targets.revenue) * 100 : 100;
+                    const duesPct = sp.targets.dues > 0 ? (sp.actual.dues / sp.targets.dues) * 100 : 100;
+
+                    const getPctColor = (pct) => pct >= 85 ? 'var(--success)' : (pct >= 50 ? 'var(--warning)' : 'var(--danger)');
+
+                    return (
+                      <tr key={sp.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 0', fontWeight: 'bold' }}>{sp.name}</td>
+                        <td>
+                          <span style={{ color: getPctColor(ordersPct), fontWeight: 'bold' }}>{sp.actual.orders}</span> / {sp.targets.orders} ({ordersPct.toFixed(0)}%)
+                        </td>
+                        <td>
+                          <span style={{ color: getPctColor(revenuePct), fontWeight: 'bold' }}>₹{sp.actual.revenue.toLocaleString()}</span> / ₹{sp.targets.revenue.toLocaleString()} ({revenuePct.toFixed(0)}%)
+                        </td>
+                        <td>
+                          <span style={{ color: getPctColor(duesPct), fontWeight: 'bold' }}>₹{sp.actual.dues.toLocaleString()}</span> / ₹{sp.targets.dues.toLocaleString()} ({duesPct.toFixed(0)}%)
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Bottom grids (Outstanding / Inactives) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Top Accounts Receivable Dues</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 0' }}>Retailer</th>
+                      <th>Category</th>
+                      <th>Outstanding</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {highestOutstandingRetailers.map(r => (
+                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '8px 0' }}>{r.name}</td>
+                        <td>{r.category}</td>
+                        <td style={{ fontWeight: 'bold', color: 'var(--danger)' }}>₹{parseFloat(r.currentOutstanding).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Inactive Retailers (No Orders &gt; 30 Days)</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 0' }}>Retailer</th>
+                      <th>Contact</th>
+                      <th>Outstanding</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inactiveRetailers.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: 'var(--text-light)' }}>All active in last 30 days</td>
+                      </tr>
+                    ) : (
+                      inactiveRetailers.map(r => (
+                        <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '8px 0' }}>{r.name}</td>
+                          <td>{r.mobileNumber}</td>
+                          <td>₹{parseFloat(r.currentOutstanding).toLocaleString()}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* VIEW 2: CREDIT APPROVAL QUEUE */}
+        {activeSubTab === 'credit' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Credit Limit Exception Approval Queue</h3>
+            
+            {orders.filter(o => o.status === 'pending_approval').length === 0 ? (
+              <div className="card" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-light)' }}>
+                🎉 No orders are currently awaiting credit limit approval.
+              </div>
+            ) : (
+              orders.filter(o => o.status === 'pending_approval').map(order => {
+                const availCredit = parseFloat(order.Retailer?.creditLimit) - parseFloat(order.Retailer?.currentOutstanding);
+                const excess = parseFloat(order.finalAmount) - availCredit;
+                
+                return (
+                  <div key={order.id} className="card animate-slide-in" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '5px solid var(--danger)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 'bold' }}>{order.Retailer?.name}</h4>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Order Number: <strong>{order.orderNumber}</strong> | Placed By: <strong>{order.placedByRole.toUpperCase()}</strong>
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--danger)' }}>₹{parseFloat(order.finalAmount).toLocaleString()}</span>
+                        <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-light)' }}>Order Value</span>
+                      </div>
+                    </div>
+
+                    {/* Credit matrix stats */}
+                    <div style={{
+                      display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px',
+                      background: '#f8fafc', padding: '12px', borderRadius: '6px', fontSize: '0.75rem'
+                    }}>
+                      <div>
+                        <span style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.6rem' }}>CREDIT LIMIT</span>
+                        <strong>₹{parseFloat(order.Retailer?.creditLimit).toLocaleString()}</strong>
+                      </div>
+                      <div>
+                        <span style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.6rem' }}>CURRENT OUTSTANDING</span>
+                        <strong>₹{parseFloat(order.Retailer?.currentOutstanding).toLocaleString()}</strong>
+                      </div>
+                      <div>
+                        <span style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.6rem' }}>AVAILABLE CREDIT</span>
+                        <strong style={{ color: 'var(--success)' }}>₹{availCredit.toLocaleString()}</strong>
+                      </div>
+                      <div>
+                        <span style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.6rem' }}>EXCESS AMOUNT REQUESTED</span>
+                        <strong style={{ color: 'var(--danger)' }}>₹{excess.toLocaleString()}</strong>
+                      </div>
+                    </div>
+
+                    {/* Actions and note inputs */}
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '4px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Add review or approval note here..."
+                        className="form-control"
+                        style={{ flex: 1 }}
+                        value={creditApprovalNote}
+                        onChange={(e) => setCreditApprovalNote(e.target.value)}
+                      />
+                      <button 
+                        onClick={() => handleApproveCredit(order.id)}
+                        className="btn btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--success)' }}
+                      >
+                        <CheckCircle size={16} /> Approve
+                      </button>
+                      <button 
+                        onClick={() => handleRejectCredit(order.id)}
+                        className="btn btn-danger"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <XCircle size={16} /> Reject
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+          </div>
+        )}
+
+        {/* VIEW 3: RETAILERS MANAGEMENT */}
+        {activeSubTab === 'retailers' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Retailer Client Accounts</h3>
+              <button 
+                onClick={() => {
+                  setEditingRetailerId(null);
+                  setRetailerForm({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
+                  setRetailerModalOpen(true);
+                }}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} /> Register Retailer
+              </button>
+            </div>
+
+            {/* Retailer Table */}
+            <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '12px 16px' }}>Name</th>
+                    <th>Tier Category</th>
+                    <th>Outstanding Dues</th>
+                    <th>Credit Limit</th>
+                    <th>Assigned Salesman</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retailers.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                        <div>{r.name}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 500 }}>{r.email} | {r.mobileNumber}</div>
+                      </td>
+                      <td>
+                        <span className="badge badge-info">{r.category}</span>
+                      </td>
+                      <td style={{ fontWeight: 'bold', color: parseFloat(r.currentOutstanding) > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                        ₹{parseFloat(r.currentOutstanding).toLocaleString()}
+                      </td>
+                      <td>₹{parseFloat(r.creditLimit).toLocaleString()}</td>
+                      <td>{r.Salesman ? r.Salesman.name : <em style={{ color: 'var(--text-light)' }}>None</em>}</td>
+                      <td>
+                        <span className={`badge ${r.isActive ? 'badge-success' : 'badge-danger'}`}>
+                          {r.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          onClick={() => {
+                            setEditingRetailerId(r.id);
+                            setRetailerForm({
+                              name: r.name,
+                              mobileNumber: r.mobileNumber,
+                              email: r.email,
+                              category: r.category,
+                              creditLimit: r.creditLimit,
+                              assignedSalesmanId: r.assignedSalesmanId || '',
+                              isActive: r.isActive
+                            });
+                            setRetailerModalOpen(true);
+                          }}
+                          className="btn btn-outline"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Retailer Modal form */}
+            {retailerModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleSaveRetailer}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>{editingRetailerId ? 'Edit Retailer Account' : 'Register New Retailer Account'}</h3>
+                  
+                  <div className="form-group">
+                    <label>Retailer Name</label>
+                    <input 
+                      type="text" required className="form-control"
+                      value={retailerForm.name}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mobile Number</label>
+                    <input 
+                      type="tel" required className="form-control"
+                      value={retailerForm.mobileNumber}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, mobileNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email Address</label>
+                    <input 
+                      type="email" required className="form-control"
+                      value={retailerForm.email}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, email: e.target.value })}
+                    />
+                  </div>
+                  {!editingRetailerId && (
+                    <div className="form-group">
+                      <label>Login Password</label>
+                      <input 
+                        type="password" required className="form-control"
+                        value={retailerForm.password}
+                        onChange={(e) => setRetailerForm({ ...retailerForm, password: e.target.value })}
+                      />
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label>Pricing Tier Category</label>
+                    <select 
+                      className="form-control"
+                      value={retailerForm.category}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, category: e.target.value })}
+                    >
+                      <option value="T1">T1 (Lowest Price)</option>
+                      <option value="T2">T2 (Medium Price)</option>
+                      <option value="T3">T3 (Highest Price)</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Credit Limit Allocation (₹)</label>
+                    <input 
+                      type="number" required className="form-control"
+                      value={retailerForm.creditLimit}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, creditLimit: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Assigned Salesman</label>
+                    <select 
+                      className="form-control"
+                      value={retailerForm.assignedSalesmanId}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, assignedSalesmanId: e.target.value })}
+                    >
+                      <option value="">No Assigned Salesman</option>
+                      {salesmen.map(sm => (
+                        <option key={sm.id} value={sm.id}>{sm.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {editingRetailerId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input 
+                        type="checkbox" id="retActive"
+                        checked={retailerForm.isActive}
+                        onChange={(e) => setRetailerForm({ ...retailerForm, isActive: e.target.checked })}
+                      />
+                      <label htmlFor="retActive" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Account Active</label>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setRetailerModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* VIEW 4: SALESMEN MANAGEMENT */}
+        {activeSubTab === 'salesmen' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Sales Representatives</h3>
+              <button 
+                onClick={() => {
+                  setEditingSalesmanId(null);
+                  setSalesmanForm({ name: '', mobileNumber: '', email: '', password: '' });
+                  setSalesmanModalOpen(true);
+                }}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} /> Register Salesman
+              </button>
+            </div>
+
+            {/* Salesmen Table */}
+            <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '12px 16px' }}>Name</th>
+                    <th>Contact details</th>
+                    <th>Assigned Retailers</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesmen.map(sm => (
+                    <tr key={sm.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>{sm.name}</td>
+                      <td>{sm.email} | {sm.mobileNumber}</td>
+                      <td>
+                        <span className="badge badge-info">{sm.Retailers?.length || 0} Clients</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${sm.isActive ? 'badge-success' : 'badge-danger'}`}>
+                          {sm.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td style={{ display: 'flex', gap: '6px', padding: '12px 0' }}>
+                        <button 
+                          onClick={() => {
+                            setEditingSalesmanId(sm.id);
+                            setSalesmanForm({ name: sm.name, mobileNumber: sm.mobileNumber, email: sm.email, isActive: sm.isActive });
+                            setSalesmanModalOpen(true);
+                          }}
+                          className="btn btn-outline"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setTargetForm({ salesmanId: sm.id, targetOrders: 0, targetRevenue: 0, targetDuesCollected: 0 });
+                            setTargetModalOpen(true);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                        >
+                          Configure Targets
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Salesman Modal */}
+            {salesmanModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleSaveSalesman}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>{editingSalesmanId ? 'Edit Salesman Profile' : 'Register New Salesman'}</h3>
+                  
+                  <div className="form-group">
+                    <label>Full NameLabel</label>
+                    <input 
+                      type="text" required className="form-control"
+                      value={salesmanForm.name}
+                      onChange={(e) => setSalesmanForm({ ...salesmanForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mobile Number</label>
+                    <input 
+                      type="tel" required className="form-control"
+                      value={salesmanForm.mobileNumber}
+                      onChange={(e) => setSalesmanForm({ ...salesmanForm, mobileNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email Address</label>
+                    <input 
+                      type="email" required className="form-control"
+                      value={salesmanForm.email}
+                      onChange={(e) => setSalesmanForm({ ...salesmanForm, email: e.target.value })}
+                    />
+                  </div>
+                  {!editingSalesmanId && (
+                    <div className="form-group">
+                      <label>Login Password</label>
+                      <input 
+                        type="password" required className="form-control"
+                        value={salesmanForm.password}
+                        onChange={(e) => setSalesmanForm({ ...salesmanForm, password: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setSalesmanModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Target Modal */}
+            {targetModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleSaveTargets}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>Monthly Targets Setup</h3>
+                  
+                  <div className="form-group">
+                    <label>Order Volume Target</label>
+                    <input 
+                      type="number" required className="form-control"
+                      value={targetForm.targetOrders}
+                      onChange={(e) => setTargetForm({ ...targetForm, targetOrders: parseInt(e.target.value) })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Revenue Target (₹)</label>
+                    <input 
+                      type="number" required className="form-control"
+                      value={targetForm.targetRevenue}
+                      onChange={(e) => setTargetForm({ ...targetForm, targetRevenue: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Dues Collection Target (₹)</label>
+                    <input 
+                      type="number" required className="form-control"
+                      value={targetForm.targetDuesCollected}
+                      onChange={(e) => setTargetForm({ ...targetForm, targetDuesCollected: parseFloat(e.target.value) })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setTargetModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Target</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* VIEW 5: PRODUCT CATALOG */}
+        {activeSubTab === 'products' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Hardware inventory Products</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={() => {
+                    setStockForm({ productId: '', quantity: 0, reason: '' });
+                    setStockModalOpen(true);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  ⚙️ Adjust Stock Log
+                </button>
+                <button 
+                  onClick={() => {
+                    setEditingProductId(null);
+                    setProductForm({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false });
+                    setProductModalOpen(true);
+                  }}
+                  className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Plus size={16} /> Add Product
+                </button>
+              </div>
+            </div>
+
+            {/* Products Table */}
+            <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '12px 16px' }}>Product name / SKU</th>
+                    <th>Brand</th>
+                    <th>Stock status</th>
+                    <th>T1 Price</th>
+                    <th>T2 Price</th>
+                    <th>T3 Price</th>
+                    <th>Featured</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map(p => {
+                    let stockBadge = 'badge-success';
+                    if (p.stockQuantity === 0) stockBadge = 'badge-danger';
+                    else if (p.stockQuantity <= p.lowStockThreshold) stockBadge = 'badge-warning';
+
+                    return (
+                      <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                          <div>{p.name}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 500 }}>SKU: {p.sku} | Cat: {p.ProductCategory?.name}</div>
+                        </td>
+                        <td>{p.brand}</td>
+                        <td>
+                          <span className={`badge ${stockBadge}`}>
+                            {p.stockQuantity} Left
+                          </span>
+                        </td>
+                        <td>₹{parseFloat(p.priceT1).toLocaleString()}</td>
+                        <td>₹{parseFloat(p.priceT2).toLocaleString()}</td>
+                        <td>₹{parseFloat(p.priceT3).toLocaleString()}</td>
+                        <td>{p.isFeatured ? '⭐ Yes' : 'No'}</td>
+                        <td>
+                          <button 
+                            onClick={() => {
+                              setEditingProductId(p.id);
+                              setProductForm({
+                                name: p.name,
+                                sku: p.sku,
+                                brand: p.brand,
+                                categoryId: p.categoryId,
+                                description: p.description || '',
+                                priceT1: p.priceT1,
+                                priceT2: p.priceT2,
+                                priceT3: p.priceT3,
+                                stockQuantity: p.stockQuantity,
+                                lowStockThreshold: p.lowStockThreshold,
+                                isFeatured: p.isFeatured
+                              });
+                              setProductModalOpen(true);
+                            }}
+                            className="btn btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Product Modal */}
+            {productModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleSaveProduct}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '90vh', overflowY: 'auto' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>{editingProductId ? 'Edit Product Details' : 'Add New Hardware Product'}</h3>
+                  
+                  <div className="form-group">
+                    <label>Product Name</label>
+                    <input type="text" required className="form-control" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div className="form-group">
+                      <label>SKU Code</label>
+                      <input type="text" required className="form-control" value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Brand</label>
+                      <input type="text" required className="form-control" value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select required className="form-control" value={productForm.categoryId} onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}>
+                      <option value="">Select Category...</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                    <div className="form-group">
+                      <label>T1 Price (₹)</label>
+                      <input type="number" required className="form-control" value={productForm.priceT1} onChange={(e) => setProductForm({ ...productForm, priceT1: parseFloat(e.target.value) })} />
+                    </div>
+                    <div className="form-group">
+                      <label>T2 Price (₹)</label>
+                      <input type="number" required className="form-control" value={productForm.priceT2} onChange={(e) => setProductForm({ ...productForm, priceT2: parseFloat(e.target.value) })} />
+                    </div>
+                    <div className="form-group">
+                      <label>T3 Price (₹)</label>
+                      <input type="number" required className="form-control" value={productForm.priceT3} onChange={(e) => setProductForm({ ...productForm, priceT3: parseFloat(e.target.value) })} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div className="form-group">
+                      <label>Initial Stock</label>
+                      <input type="number" required className="form-control" disabled={!!editingProductId} value={productForm.stockQuantity} onChange={(e) => setProductForm({ ...productForm, stockQuantity: parseInt(e.target.value) })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Low Threshold</label>
+                      <input type="number" required className="form-control" value={productForm.lowStockThreshold} onChange={(e) => setProductForm({ ...productForm, lowStockThreshold: parseInt(e.target.value) })} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input type="checkbox" id="prodFeat" checked={productForm.isFeatured} onChange={(e) => setProductForm({ ...productForm, isFeatured: e.target.checked })} />
+                    <label htmlFor="prodFeat" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Mark Featured on Mobile Home</label>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setProductModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Stock Adjustment Modal */}
+            {stockModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleAdjustStock}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>Log Stock Adjustment</h3>
+                  
+                  <div className="form-group">
+                    <label>Select Product</label>
+                    <select required className="form-control" value={stockForm.productId} onChange={(e) => setStockForm({ ...stockForm, productId: e.target.value })}>
+                      <option value="">Select Item...</option>
+                      {products.map(p => <option key={p.id} value={p.id}>{p.name} (SKU: {p.sku})</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Quantity Change (Use negative to deduct)</label>
+                    <input type="number" placeholder="e.g. 20 or -15" required className="form-control" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: parseInt(e.target.value) })} />
+                  </div>
+                  <div className="form-group">
+                    <label>Adjustment Reason Note</label>
+                    <input type="text" placeholder="e.g. Received shipment, Damaged stock" required className="form-control" value={stockForm.reason} onChange={(e) => setStockForm({ ...stockForm, reason: e.target.value })} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setStockModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Adjust stock</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* VIEW 6: ORDERS LIST */}
+        {activeSubTab === 'orders' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Distributor Sales Orders</h3>
+            
+            {/* Orders Table */}
+            <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '12px 16px' }}>Order ID / Date</th>
+                    <th>Retailer</th>
+                    <th>Payment</th>
+                    <th>Final Amount</th>
+                    <th>Status Action</th>
+                    <th>Credit Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map(o => (
+                    <tr key={o.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                        <div>{o.orderNumber}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 500 }}>
+                          Placed: {new Date(o.placedAt).toLocaleString()}
+                        </div>
+                      </td>
+                      <td>{o.Retailer?.name}</td>
+                      <td>{o.paymentType.toUpperCase()}</td>
+                      <td style={{ fontWeight: 'bold' }}>₹{parseFloat(o.finalAmount).toLocaleString()}</td>
+                      <td>
+                        <select 
+                          value={o.status}
+                          disabled={o.status === 'cancelled' || o.status === 'pending_approval'}
+                          onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
+                          style={{
+                            padding: '4px', fontSize: '0.75rem', borderRadius: '4px',
+                            border: '1px solid var(--border-color)', outline: 'none'
+                          }}
+                        >
+                          <option value="pending" disabled>Pending</option>
+                          <option value="pending_approval" disabled>Awaiting Credit</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="packed">Packed</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                      <td>
+                        <span className={`badge ${o.creditApprovalStatus === 'approved' ? 'badge-success' : (o.creditApprovalStatus === 'rejected' ? 'badge-danger' : 'badge-info')}`}>
+                          {o.creditApprovalStatus.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          onClick={() => setSelectedInvoice(o)}
+                          className="btn btn-outline"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <FileText size={12} />
+                          Invoice
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* HTML Invoice Modal (Simulated PDF) */}
+            {selectedInvoice && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <div className="card animate-slide-in" style={{ width: '100%', maxWidth: '640px', background: 'white', padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  
+                  {/* Invoice Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
+                    <div>
+                      <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>BISWAS DISTRIBUTION</h2>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>Corporate Hardware & CCTV Supplies</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>GSTIN: 29BISWASD1212Z1</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>TAX INVOICE</h3>
+                      <span style={{ fontSize: '0.75rem', display: 'block' }}>Invoice No: <strong>INV-{selectedInvoice.orderNumber}</strong></span>
+                      <span style={{ fontSize: '0.75rem' }}>Date: <strong>{new Date(selectedInvoice.placedAt).toLocaleDateString()}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Billing Details Address */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', fontSize: '0.75rem' }}>
+                    <div>
+                      <strong style={{ color: 'var(--text-light)', display: 'block', marginBottom: '4px' }}>BILL TO:</strong>
+                      <strong>{selectedInvoice.Retailer?.name}</strong>
+                      <span style={{ display: 'block' }}>Email: {selectedInvoice.Retailer?.email}</span>
+                      <span>Mobile: {selectedInvoice.Retailer?.mobileNumber}</span>
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--text-light)', display: 'block', marginBottom: '4px' }}>DELIVER TO ADDRESS:</strong>
+                      <span>{selectedInvoice.deliveryAddressSnapshot?.addressLine1}</span>
+                      <span style={{ display: 'block' }}>{selectedInvoice.deliveryAddressSnapshot?.city}, {selectedInvoice.deliveryAddressSnapshot?.state} - {selectedInvoice.deliveryAddressSnapshot?.pincode}</span>
+                    </div>
+                  </div>
+
+                  {/* Items Breakdown Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', marginTop: '10px' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000', textAlign: 'left', fontWeight: 'bold' }}>
+                        <th style={{ padding: '8px' }}>Product SKU</th>
+                        <th>Product name</th>
+                        <th>Price</th>
+                        <th>Qty</th>
+                        <th style={{ textAlign: 'right', paddingRight: '8px' }}>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedInvoice.OrderItems?.map(item => (
+                        <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '8px', fontFamily: 'monospace' }}>{item.sku}</td>
+                          <td>{item.productName}</td>
+                          <td>₹{parseFloat(item.unitPrice).toLocaleString()}</td>
+                          <td>{item.quantity}</td>
+                          <td style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 'bold' }}>₹{parseFloat(item.subtotal).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Invoice Surcharges & CGST/SGST Tax Calculation */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <div style={{ width: '250px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Total Items Value:</span>
+                        <span>₹{parseFloat(selectedInvoice.totalProductAmount).toLocaleString()}</span>
+                      </div>
+                      
+                      {/* Surcharge */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Surcharge Fee ({selectedInvoice.paymentType.toUpperCase()}):</span>
+                        <span>₹{parseFloat(selectedInvoice.surchargeAmount).toLocaleString()}</span>
+                      </div>
+
+                      {/* Simulated GST (18% inclusive) */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-light)' }}>
+                        <span>SGST (9%):</span>
+                        <span>₹{(parseFloat(selectedInvoice.totalProductAmount) * 0.09).toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-light)', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
+                        <span>CGST (9%):</span>
+                        <span>₹{(parseFloat(selectedInvoice.totalProductAmount) * 0.09).toFixed(2)}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--primary)' }}>
+                        <span>Total Amount Due:</span>
+                        <span>₹{parseFloat(selectedInvoice.finalAmount).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer Controls */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                    <button 
+                      onClick={() => onNotification('success', 'PDF Invoice Download Triggered!')}
+                      className="btn btn-outline"
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    >
+                      <Download size={14} /> Download PDF
+                    </button>
+                    <button onClick={() => setSelectedInvoice(null)} className="btn btn-primary" style={{ flex: 1 }}>Close Invoice</button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* VIEW 7: ACCOUNT RECEIVABLES (DUES LEDGER) */}
+        {activeSubTab === 'dues' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Accounts Receivables & Outstanding Ledger</h3>
+            
+            {/* Dues Table */}
+            <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '12px 16px' }}>Bill ID / Order No</th>
+                    <th>Retailer Account</th>
+                    <th>Due Date</th>
+                    <th>Total Due</th>
+                    <th>Paid Amount</th>
+                    <th>Remaining Balance</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dues.map(due => (
+                    <tr key={due.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                        <div>DP-00{due.id}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 500 }}>
+                          Order: {due.Order?.orderNumber}
+                        </div>
+                      </td>
+                      <td>{due.Retailer?.name}</td>
+                      <td>{new Date(due.dueDate).toLocaleDateString()}</td>
+                      <td>₹{parseFloat(due.totalDue).toLocaleString()}</td>
+                      <td>₹{parseFloat(due.paidAmount).toLocaleString()}</td>
+                      <td style={{ fontWeight: 'bold', color: parseFloat(due.balanceDue) > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                        ₹{parseFloat(due.balanceDue).toLocaleString()}
+                      </td>
+                      <td>
+                        <span className={`badge ${due.status === 'paid' ? 'badge-success' : (due.status === 'overdue' ? 'badge-danger' : 'badge-warning')}`}>
+                          {due.status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        {due.status !== 'paid' && (
+                          <button 
+                            onClick={() => {
+                              setPaymentForm({ dueId: due.id, amountReceived: parseFloat(due.balanceDue), note: '' });
+                              setPaymentModalOpen(true);
+                            }}
+                            className="btn btn-primary"
+                            style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                          >
+                            Record Payment
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Offline Payment Recording Modal */}
+            {paymentModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleRecordPayment}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>Record Offline Collection</h3>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>This payment will reduce the outstanding due and increase the retailer's available credit balance.</p>
+                  
+                  <div className="form-group">
+                    <label>Amount Received (₹)</label>
+                    <input 
+                      type="number" required className="form-control"
+                      value={paymentForm.amountReceived}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, amountReceived: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Payment Notes / Transaction ID</label>
+                    <input 
+                      type="text" placeholder="e.g. Cash collected by Salesman 1, Bank Transfer" className="form-control"
+                      value={paymentForm.note}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setPaymentModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Record Payment</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* VIEW 8: GENERAL CONFIG OPTIONS */}
+        {activeSubTab === 'config' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '480px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Global Payment Arrangement &amp; Surcharge Configs</h3>
+            
+            <form onSubmit={handleSaveConfigs} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              <div className="form-group">
+                <label>Cash on Delivery (COD) Flat Charge (₹)</label>
+                <input 
+                  type="number" className="form-control"
+                  value={codCharge}
+                  onChange={(e) => setCodCharge(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Due 7 Days Surcharge Rate (%)</label>
+                <input 
+                  type="number" step="0.1" className="form-control"
+                  value={due7Rate}
+                  onChange={(e) => setDue7Rate(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Due 15 Days Surcharge Rate (%)</label>
+                <input 
+                  type="number" step="0.1" className="form-control"
+                  value={due15Rate}
+                  onChange={(e) => setDue15Rate(parseFloat(e.target.value))}
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '10px 20px', fontWeight: 'bold' }}>
+                Save Configuration Updates
+              </button>
+            </form>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
