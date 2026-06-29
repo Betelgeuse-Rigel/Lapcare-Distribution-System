@@ -37,7 +37,7 @@ export default function AdminPortal({ onNotification }) {
   // Form payload states
   const [retailerForm, setRetailerForm] = useState({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
   const [salesmanForm, setSalesmanForm] = useState({ name: '', mobileNumber: '', email: '', password: '' });
-  const [productForm, setProductForm] = useState({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false });
+  const [productForm, setProductForm] = useState({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false, imageUrl: '' });
   const [stockForm, setStockForm] = useState({ productId: '', quantity: 0, reason: '' });
   const [targetForm, setTargetForm] = useState({ salesmanId: '', targetOrders: 0, targetRevenue: 0, targetDuesCollected: 0 });
   const [paymentForm, setPaymentForm] = useState({ dueId: '', amountReceived: 0, note: '' });
@@ -361,19 +361,23 @@ export default function AdminPortal({ onNotification }) {
       : `${API_BASE}/api/admin/products`;
 
     try {
+      const payload = {
+        ...productForm,
+        images: productForm.imageUrl ? [productForm.imageUrl] : []
+      };
       const res = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(productForm)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         onNotification('success', editingProductId ? 'Product details updated' : 'Product created in inventory');
         setProductModalOpen(false);
         setEditingProductId(null);
-        setProductForm({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false });
+        setProductForm({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false, imageUrl: '' });
         fetchProducts();
       }
     } catch (err) {
@@ -1248,7 +1252,7 @@ export default function AdminPortal({ onNotification }) {
                 <button 
                   onClick={() => {
                     setEditingProductId(null);
-                    setProductForm({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false });
+                    setProductForm({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false, imageUrl: '' });
                     setProductModalOpen(true);
                   }}
                   className="btn btn-primary"
@@ -1264,7 +1268,8 @@ export default function AdminPortal({ onNotification }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
-                    <th style={{ padding: '12px 16px' }}>Product name / SKU</th>
+                    <th style={{ padding: '12px 16px', width: '50px' }}>Image</th>
+                    <th>Product name / SKU</th>
                     <th>Brand</th>
                     <th>Stock status</th>
                     <th>T1 Price</th>
@@ -1282,7 +1287,20 @@ export default function AdminPortal({ onNotification }) {
 
                     return (
                       <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{
+                            width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden',
+                            background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1px solid var(--border-color)'
+                          }}>
+                            {p.images && p.images[0] ? (
+                              <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: '1.2rem' }}>📦</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: 'bold' }}>
                           <div>{p.name}</div>
                           <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 500 }}>SKU: {p.sku} | Cat: {p.ProductCategory?.name}</div>
                         </td>
@@ -1311,7 +1329,8 @@ export default function AdminPortal({ onNotification }) {
                                 priceT3: p.priceT3,
                                 stockQuantity: p.stockQuantity,
                                 lowStockThreshold: p.lowStockThreshold,
-                                isFeatured: p.isFeatured
+                                isFeatured: p.isFeatured,
+                                imageUrl: (p.images && p.images[0]) || ''
                               });
                               setProductModalOpen(true);
                             }}
@@ -1385,6 +1404,26 @@ export default function AdminPortal({ onNotification }) {
                     <div className="form-group">
                       <label>Low Threshold</label>
                       <input type="number" required className="form-control" value={productForm.lowStockThreshold} onChange={(e) => setProductForm({ ...productForm, lowStockThreshold: parseInt(e.target.value) })} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Product Image URL</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input 
+                        type="url" 
+                        placeholder="https://images.unsplash.com/..." 
+                        className="form-control" 
+                        value={productForm.imageUrl} 
+                        onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })} 
+                      />
+                      {productForm.imageUrl && (
+                        <img 
+                          src={productForm.imageUrl} 
+                          alt="Preview" 
+                          style={{ width: '38px', height: '38px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
+                          onError={(e) => e.target.style.display = 'none'}
+                        />
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
