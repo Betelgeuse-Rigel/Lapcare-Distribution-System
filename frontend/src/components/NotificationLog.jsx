@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MessageSquare, Bell, Cpu, Trash2, Copy, Check } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function NotificationLog() {
   const [logs, setLogs] = useState([]);
@@ -8,7 +9,7 @@ export default function NotificationLog() {
   // Poll logs from the backend every 1.5 seconds
   const fetchLogs = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/logs');
+      const res = await fetch(`${API_BASE}/api/logs`);
       if (res.ok) {
         const data = await res.json();
         // Sort logs: newest first
@@ -27,7 +28,8 @@ export default function NotificationLog() {
 
   const handleClearLogs = async () => {
     try {
-      await fetch('http://localhost:5000/api/logs/clear', { method: 'POST' });
+      await fetch(`${API_BASE}/api/logs/clear`, { method: 'POST' });
+
       setLogs([]);
     } catch (err) {
       console.error(err);

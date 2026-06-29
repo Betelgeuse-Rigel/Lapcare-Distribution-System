@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE } from '../config';
 import { 
   Lock, Phone, Key, ShieldAlert, Award, 
   Plus, Minus, Check, ShoppingBag, Eye, Trash2,
@@ -62,7 +63,7 @@ export default function MobilePortal({ onNotification }) {
   // Fetch initial payment configurations
   const fetchPaymentConfigs = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/payment-config', {
+      const res = await fetch(`${API_BASE}/api/admin/payment-config`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       // In mobile app, config endpoint is accessed using normal token. Let's make it standard
@@ -108,7 +109,7 @@ export default function MobilePortal({ onNotification }) {
 
   const fetchRetailerDashboard = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/retailer/dashboard', {
+      const res = await fetch(`${API_BASE}/api/retailer/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -122,7 +123,7 @@ export default function MobilePortal({ onNotification }) {
 
   const fetchSalesmanDashboard = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/salesman/dashboard', {
+      const res = await fetch(`${API_BASE}/api/salesman/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -136,7 +137,7 @@ export default function MobilePortal({ onNotification }) {
 
   const fetchAssignedRetailers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/salesman/retailers', {
+      const res = await fetch(`${API_BASE}/api/salesman/retailers`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -151,7 +152,7 @@ export default function MobilePortal({ onNotification }) {
   const fetchCategories = async () => {
     try {
       // Make it public or auth endpoint
-      const res = await fetch('http://localhost:5000/api/products/categories', {
+      const res = await fetch(`${API_BASE}/api/products/categories`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -168,7 +169,7 @@ export default function MobilePortal({ onNotification }) {
       const targetRetId = retId || (user.role === 'retailer' ? user.id : onBehalfRetailer?.id);
       if (!targetRetId) return;
 
-      const url = `http://localhost:5000/api/products?retailerId=${targetRetId}${selectedCategory ? `&categoryId=${selectedCategory}` : ''}${searchQuery ? `&q=${searchQuery}` : ''}`;
+      const url = `${API_BASE}/api/products?retailerId=${targetRetId}${selectedCategory ? `&categoryId=${selectedCategory}` : ''}${searchQuery ? `&q=${searchQuery}` : ''}`;
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -192,7 +193,7 @@ export default function MobilePortal({ onNotification }) {
       const targetRetId = retId || (user.role === 'retailer' ? user.id : onBehalfRetailer?.id);
       if (!targetRetId) return;
 
-      const res = await fetch(`http://localhost:5000/api/retailer/addresses?retailerId=${targetRetId}`, {
+      const res = await fetch(`${API_BASE}/api/retailer/addresses?retailerId=${targetRetId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -209,7 +210,7 @@ export default function MobilePortal({ onNotification }) {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/orders', {
+      const res = await fetch(`${API_BASE}/api/orders`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -223,7 +224,7 @@ export default function MobilePortal({ onNotification }) {
 
   const fetchDues = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/dues', {
+      const res = await fetch(`${API_BASE}/api/dues`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -245,7 +246,7 @@ export default function MobilePortal({ onNotification }) {
       return;
     }
     try {
-      const res = await fetch('http://localhost:5000/api/auth/send-otp', {
+      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber })
@@ -268,7 +269,7 @@ export default function MobilePortal({ onNotification }) {
       return;
     }
     try {
-      const res = await fetch('http://localhost:5000/api/auth/verify-otp', {
+      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber, otp: otpCode })
@@ -294,7 +295,7 @@ export default function MobilePortal({ onNotification }) {
       return;
     }
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login-password', {
+      const res = await fetch(`${API_BASE}/api/auth/login-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber, password })
@@ -404,7 +405,7 @@ export default function MobilePortal({ onNotification }) {
       : onBehalfRetailer?.availableCredit;
 
     try {
-      const res = await fetch('http://localhost:5000/api/orders', {
+      const res = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -458,7 +459,7 @@ export default function MobilePortal({ onNotification }) {
 
   const handleCancelOrder = async (orderId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/cancel`, {
+      const res = await fetch(`${API_BASE}/api/orders/${orderId}/cancel`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -489,8 +490,8 @@ export default function MobilePortal({ onNotification }) {
     const payload = { ...addressForm, retailerId: targetRetId };
     const method = editingAddressId ? 'PUT' : 'POST';
     const url = editingAddressId 
-      ? `http://localhost:5000/api/retailer/addresses/${editingAddressId}` 
-      : 'http://localhost:5000/api/retailer/addresses';
+      ? `${API_BASE}/api/retailer/addresses/${editingAddressId}` 
+      : `${API_BASE}/api/retailer/addresses`;
 
     try {
       const res = await fetch(url, {
@@ -530,7 +531,7 @@ export default function MobilePortal({ onNotification }) {
   const handleDeleteAddress = async (addrId) => {
     const targetRetId = user.role === 'retailer' ? user.id : onBehalfRetailer?.id;
     try {
-      const res = await fetch(`http://localhost:5000/api/retailer/addresses/${addrId}?retailerId=${targetRetId}`, {
+      const res = await fetch(`${API_BASE}/api/retailer/addresses/${addrId}?retailerId=${targetRetId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1368,7 +1369,7 @@ export default function MobilePortal({ onNotification }) {
               style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               onClick={async () => {
                 try {
-                  const res = await fetch(`http://localhost:5000/api/salesman/retailers/${r.id}`, {
+                  const res = await fetch(`${API_BASE}/api/salesman/retailers/${r.id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                   });
                   if (res.ok) {

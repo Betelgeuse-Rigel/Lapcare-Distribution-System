@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE } from '../config';
 import { 
   LayoutDashboard, UserCheck, Users, ShieldAlert,
   ShoppingBag, HelpCircle, Key, Plus, FileText, CheckCircle, 
@@ -71,7 +72,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/dashboard', {
+      const res = await fetch(`${API_BASE}/api/admin/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -85,7 +86,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchRetailers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/retailers', {
+      const res = await fetch(`${API_BASE}/api/admin/retailers`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -99,7 +100,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchSalesmen = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/salesmen', {
+      const res = await fetch(`${API_BASE}/api/admin/salesmen`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -113,7 +114,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/products', {
+      const res = await fetch(`${API_BASE}/api/admin/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -127,7 +128,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/orders', {
+      const res = await fetch(`${API_BASE}/api/admin/orders`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -141,7 +142,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchDues = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/dues', {
+      const res = await fetch(`${API_BASE}/api/admin/dues`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -155,7 +156,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/products/categories', {
+      const res = await fetch(`${API_BASE}/api/products/categories`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -169,7 +170,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchPaymentConfigs = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/payment-config', {
+      const res = await fetch(`${API_BASE}/api/admin/payment-config`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -194,7 +195,7 @@ export default function AdminPortal({ onNotification }) {
     e.preventDefault();
     if (!email || !password) return;
     try {
-      const res = await fetch('http://localhost:5000/api/admin/auth/login', {
+      const res = await fetch(`${API_BASE}/api/admin/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -221,7 +222,7 @@ export default function AdminPortal({ onNotification }) {
   // ==========================================
   const handleApproveCredit = async (orderId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/orders/${orderId}/approve-credit`, {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}/approve-credit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +243,7 @@ export default function AdminPortal({ onNotification }) {
 
   const handleRejectCredit = async (orderId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/orders/${orderId}/reject-credit`, {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}/reject-credit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -271,8 +272,8 @@ export default function AdminPortal({ onNotification }) {
     
     const method = editingRetailerId ? 'PUT' : 'POST';
     const url = editingRetailerId 
-      ? `http://localhost:5000/api/admin/retailers/${editingRetailerId}` 
-      : 'http://localhost:5000/api/admin/retailers';
+      ? `${API_BASE}/api/admin/retailers/${editingRetailerId}` 
+      : `${API_BASE}/api/admin/retailers`;
 
     try {
       const res = await fetch(url, {
@@ -303,8 +304,8 @@ export default function AdminPortal({ onNotification }) {
     e.preventDefault();
     const method = editingSalesmanId ? 'PUT' : 'POST';
     const url = editingSalesmanId 
-      ? `http://localhost:5000/api/admin/salesmen/${editingSalesmanId}` 
-      : 'http://localhost:5000/api/admin/salesmen';
+      ? `${API_BASE}/api/admin/salesmen/${editingSalesmanId}` 
+      : `${API_BASE}/api/admin/salesmen`;
 
     try {
       const res = await fetch(url, {
@@ -331,7 +332,7 @@ export default function AdminPortal({ onNotification }) {
   const handleSaveTargets = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/salesmen/${targetForm.salesmanId}/targets`, {
+      const res = await fetch(`${API_BASE}/api/admin/salesmen/${targetForm.salesmanId}/targets`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -356,8 +357,8 @@ export default function AdminPortal({ onNotification }) {
     e.preventDefault();
     const method = editingProductId ? 'PUT' : 'POST';
     const url = editingProductId 
-      ? `http://localhost:5000/api/admin/products/${editingProductId}` 
-      : 'http://localhost:5000/api/admin/products';
+      ? `${API_BASE}/api/admin/products/${editingProductId}` 
+      : `${API_BASE}/api/admin/products`;
 
     try {
       const res = await fetch(url, {
@@ -383,7 +384,7 @@ export default function AdminPortal({ onNotification }) {
   const handleAdjustStock = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/products/${stockForm.productId}/stock`, {
+      const res = await fetch(`${API_BASE}/api/admin/products/${stockForm.productId}/stock`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -407,7 +408,7 @@ export default function AdminPortal({ onNotification }) {
   const handleRecordPayment = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/dues/${paymentForm.dueId}/record-payment`, {
+      const res = await fetch(`${API_BASE}/api/admin/dues/${paymentForm.dueId}/record-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -436,7 +437,7 @@ export default function AdminPortal({ onNotification }) {
   const handleSaveConfigs = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:5000/api/admin/payment-config', {
+      const res = await fetch(`${API_BASE}/api/admin/payment-config`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -462,7 +463,7 @@ export default function AdminPortal({ onNotification }) {
   // CRON OVERDUE CHECK TRIGGER
   const triggerOverdueCheck = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/cron/check-overdue', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/admin/cron/check-overdue`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
         onNotification('info', `Cron complete: Marked ${data.count} bills as Overdue.`);
@@ -477,7 +478,7 @@ export default function AdminPortal({ onNotification }) {
   // Change order shipping status
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/orders/${orderId}/status`, {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
