@@ -5,7 +5,8 @@ import NotificationLog from './components/NotificationLog';
 import DeviceFrame from './components/DeviceFrame';
 
 export default function App() {
-  const [activePortal, setActivePortal] = useState('mobile'); // 'mobile' or 'admin'
+  const queryParams = new URLSearchParams(window.location.search);
+  const [activePortal, setActivePortal] = useState(queryParams.get('view') === 'mobile' ? 'mobile' : 'admin');
   const [toasts, setToasts] = useState([]);
 
   // Trigger global toast alert
@@ -22,8 +23,8 @@ export default function App() {
   return (
     <div className="admin-shell">
       
-      {/* Global Top Navbar */}
-      <header className="global-header">
+      {/* Head Office Header */}
+      <header className="global-header" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
             width: '32px',
@@ -40,49 +41,38 @@ export default function App() {
           }}>
             B
           </div>
-          <h1>BISWAS DISTRIBUTION <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#90caf9', marginLeft: '6px' }}>Simulation Console</span></h1>
+          <h1>BISWAS DISTRIBUTION <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#90caf9', marginLeft: '6px' }}>Head Office Enterprise Portal</span></h1>
         </div>
 
-        {/* Tabs to switch Workspace Views */}
-        <div className="header-tabs">
-          <button
-            onClick={() => setActivePortal('mobile')}
-            className={`header-tab ${activePortal === 'mobile' ? 'active' : ''}`}
-          >
-            📱 Mobile App Simulator
-          </button>
-          <button
-            onClick={() => setActivePortal('admin')}
-            className={`header-tab ${activePortal === 'admin' ? 'active' : ''}`}
-          >
-            🏢 Head Office Admin Panel
-          </button>
-        </div>
+        {queryParams.get('view') === 'mobile' && (
+          <div className="header-tabs">
+            <button
+              onClick={() => setActivePortal('mobile')}
+              className={`header-tab ${activePortal === 'mobile' ? 'active' : ''}`}
+            >
+              📱 Mobile App Simulator
+            </button>
+            <button
+              onClick={() => setActivePortal('admin')}
+              className={`header-tab ${activePortal === 'admin' ? 'active' : ''}`}
+            >
+              🏢 Head Office Admin Panel
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Workspace Frame */}
       {activePortal === 'mobile' ? (
         <div className="simulator-container">
-          
-          {/* Main phone simulator block */}
           <div className="simulator-workspace">
-            {/* Render Phone Simulator Shell */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
               <DeviceFrame showNavbar={false}>
-                {/* Embedded Mobile React Portal */}
                 <MobilePortal onNotification={showToast} />
               </DeviceFrame>
-              <div style={{ color: '#64748b', fontSize: '0.7rem', display: 'flex', gap: '8px' }}>
-                <span>📱 Android 14 Simulator</span>
-                <span>•</span>
-                <span>Width: 360px</span>
-              </div>
             </div>
           </div>
-
-          {/* Right Live SMS/FCM logs console */}
           <NotificationLog />
-
         </div>
       ) : (
         /* Fullscreen Desktop Admin Portal */

@@ -1468,13 +1468,26 @@ app.patch('/api/admin/products/:id/stock', authenticateAdmin, async (req, res) =
   }
 });
 
+app.patch('/api/admin/products/:id/toggle-active', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const p = await Product.findByPk(id);
+    if (!p) return res.status(404).json({ error: 'Product not found' });
+    p.isActive = !p.isActive;
+    await p.save();
+    res.json({ success: true, isActive: p.isActive, message: `Product ${p.isActive ? 'activated' : 'deactivated'}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const p = await Product.findByPk(id);
     if (!p) return res.status(404).json({ error: 'Product not found' });
-    await p.update({ isActive: false });
-    res.json({ success: true, message: 'Product deactivated' });
+    await p.destroy();
+    res.json({ success: true, message: 'Product permanently deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
