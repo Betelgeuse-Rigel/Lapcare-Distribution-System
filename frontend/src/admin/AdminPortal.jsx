@@ -3,7 +3,7 @@ import { API_BASE } from '../config';
 import { 
   LayoutDashboard, UserCheck, Users, ShieldAlert,
   ShoppingBag, HelpCircle, Key, Plus, FileText, CheckCircle, 
-  XCircle, Edit, DollarSign, Settings, Download, Trash2
+  XCircle, Edit, DollarSign, Settings, Download, Trash2, Layers
 } from 'lucide-react';
 
 export default function AdminPortal({ onNotification }) {
@@ -33,11 +33,13 @@ export default function AdminPortal({ onNotification }) {
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   // Form payload states
   const [retailerForm, setRetailerForm] = useState({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
   const [salesmanForm, setSalesmanForm] = useState({ name: '', mobileNumber: '', email: '', password: '' });
   const [productForm, setProductForm] = useState({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false, imageUrl: '' });
+  const [categoryForm, setCategoryForm] = useState({ name: '', imageUrl: '', sortOrder: 0 });
   const [stockForm, setStockForm] = useState({ productId: '', quantity: 0, reason: '' });
   const [targetForm, setTargetForm] = useState({ salesmanId: '', targetOrders: 0, targetRevenue: 0, targetDuesCollected: 0 });
   const [paymentForm, setPaymentForm] = useState({ dueId: '', amountReceived: 0, note: '' });
@@ -45,6 +47,7 @@ export default function AdminPortal({ onNotification }) {
   const [editingRetailerId, setEditingRetailerId] = useState(null);
   const [editingSalesmanId, setEditingSalesmanId] = useState(null);
   const [editingProductId, setEditingProductId] = useState(null);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   const [creditApprovalNote, setCreditApprovalNote] = useState('');
 
@@ -156,7 +159,7 @@ export default function AdminPortal({ onNotification }) {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/products/categories`, {
+      const res = await fetch(`${API_BASE}/api/admin/categories`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -406,6 +409,69 @@ export default function AdminPortal({ onNotification }) {
     }
   };
 
+  const handleDeleteProduct = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete / deactivate "${name}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/products/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        onNotification('success', 'Product removed from active inventory');
+        fetchProducts();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to delete product');
+    }
+  };
+
+  // ==========================================
+  // CATEGORY CRUD
+  // ==========================================
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    const method = editingCategoryId ? 'PUT' : 'POST';
+    const url = editingCategoryId 
+      ? `${API_BASE}/api/admin/categories/${editingCategoryId}` 
+      : `${API_BASE}/api/admin/categories`;
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(categoryForm)
+      });
+      if (res.ok) {
+        onNotification('success', editingCategoryId ? 'Category details updated' : 'Product category added');
+        setCategoryModalOpen(false);
+        setEditingCategoryId(null);
+        setCategoryForm({ name: '', imageUrl: '', sortOrder: 0 });
+        fetchCategories();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to save category');
+    }
+  };
+
+  const handleDeleteCategory = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to deactivate category "${name}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/categories/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        onNotification('success', 'Category deactivated');
+        fetchCategories();
+      }
+    } catch (err) {
+      onNotification('error', 'Failed to delete category');
+    }
+  };
+
   // ==========================================
   // DUES COLLECTION
   // ==========================================
@@ -591,6 +657,7 @@ export default function AdminPortal({ onNotification }) {
             { id: 'credit', label: 'Credit approvals', icon: ShieldAlert, badge: kpis.pendingApprovalsCount },
             { id: 'retailers', label: 'Retailers list', icon: Users },
             { id: 'salesmen', label: 'Salesmen tracking', icon: UserCheck },
+            { id: 'categories', label: 'Product categories', icon: Layers },
             { id: 'products', label: 'Product catalog', icon: ShoppingBag },
             { id: 'orders', label: 'Orders list', icon: FileText },
             { id: 'dues', label: 'Account receivables', icon: DollarSign },
@@ -1233,6 +1300,143 @@ export default function AdminPortal({ onNotification }) {
           </div>
         )}
 
+        {/* VIEW: PRODUCT CATEGORIES */}
+        {activeSubTab === 'categories' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Product Categories Management</h3>
+              <button 
+                onClick={() => {
+                  setEditingCategoryId(null);
+                  setCategoryForm({ name: '', imageUrl: '', sortOrder: 0 });
+                  setCategoryModalOpen(true);
+                }}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} /> Add Category
+              </button>
+            </div>
+
+            {/* Categories Table */}
+            <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-light)' }}>
+                    <th style={{ padding: '12px 16px', width: '50px' }}>Icon</th>
+                    <th>Category Name</th>
+                    <th>Sort Order</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map(c => (
+                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{
+                          width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden',
+                          background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: '1px solid var(--border-color)'
+                        }}>
+                          {c.imageUrl ? (
+                            <img src={c.imageUrl} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ fontSize: '1.2rem' }}>📂</span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 'bold' }}>{c.name}</td>
+                      <td>{c.sortOrder}</td>
+                      <td>
+                        <span className={`badge ${c.isActive !== false ? 'badge-success' : 'badge-danger'}`}>
+                          {c.isActive !== false ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          onClick={() => {
+                            setEditingCategoryId(c.id);
+                            setCategoryForm({
+                              name: c.name,
+                              imageUrl: c.imageUrl || '',
+                              sortOrder: c.sortOrder || 0
+                            });
+                            setCategoryModalOpen(true);
+                          }}
+                          className="btn btn-outline"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteCategory(c.id, c.name)}
+                          className="btn btn-outline"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Category Modal */}
+            {categoryModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <form 
+                  onSubmit={handleSaveCategory}
+                  className="card animate-slide-in"
+                  style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>{editingCategoryId ? 'Edit Category' : 'Add New Category'}</h3>
+                  
+                  <div className="form-group">
+                    <label>Category Name</label>
+                    <input 
+                      type="text" required className="form-control" 
+                      value={categoryForm.name} 
+                      onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Image URL</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input 
+                        type="url" placeholder="https://..." className="form-control" 
+                        value={categoryForm.imageUrl} 
+                        onChange={(e) => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })} 
+                      />
+                      {categoryForm.imageUrl && (
+                        <img src={categoryForm.imageUrl} alt="Preview" style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }} onError={(e) => e.target.style.display='none'} />
+                      )}
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Sort Order Index</label>
+                    <input 
+                      type="number" className="form-control" 
+                      value={categoryForm.sortOrder} 
+                      onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: parseInt(e.target.value) || 0 })} 
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" onClick={() => setCategoryModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Category</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* VIEW 5: PRODUCT CATALOG */}
         {activeSubTab === 'products' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1338,6 +1542,13 @@ export default function AdminPortal({ onNotification }) {
                             style={{ padding: '4px 8px', fontSize: '0.7rem' }}
                           >
                             Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteProduct(p.id, p.name)}
+                            className="btn btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '0.7rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }}
+                          >
+                            Delete
                           </button>
                         </td>
                       </tr>

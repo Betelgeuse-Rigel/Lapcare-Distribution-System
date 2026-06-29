@@ -1468,6 +1468,73 @@ app.patch('/api/admin/products/:id/stock', authenticateAdmin, async (req, res) =
   }
 });
 
+app.delete('/api/admin/products/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const p = await Product.findByPk(id);
+    if (!p) return res.status(404).json({ error: 'Product not found' });
+    await p.update({ isActive: false });
+    res.json({ success: true, message: 'Product deactivated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CATEGORIES CRUD (ADMIN)
+app.get('/api/admin/categories', authenticateAdmin, async (req, res) => {
+  try {
+    const list = await ProductCategory.findAll({
+      order: [['sortOrder', 'ASC']]
+    });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/categories', authenticateAdmin, async (req, res) => {
+  const { name, imageUrl, sortOrder } = req.body;
+  if (!name) return res.status(400).json({ error: 'Category name is required' });
+
+  try {
+    const cat = await ProductCategory.create({
+      name,
+      imageUrl: imageUrl || null,
+      sortOrder: sortOrder || 0
+    });
+    res.status(201).json(cat);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/categories/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, imageUrl, sortOrder, isActive } = req.body;
+
+  try {
+    const cat = await ProductCategory.findByPk(id);
+    if (!cat) return res.status(404).json({ error: 'Category not found' });
+
+    await cat.update({ name, imageUrl, sortOrder, isActive });
+    res.json(cat);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/categories/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const cat = await ProductCategory.findByPk(id);
+    if (!cat) return res.status(404).json({ error: 'Category not found' });
+    await cat.update({ isActive: false });
+    res.json({ success: true, message: 'Category deactivated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ORDERS MANAGEMENT (ADMIN)
 app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
   try {
