@@ -2,21 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE } from '../config';
 import { 
   Lock, Phone, Key, ShieldAlert, Award, 
-  Plus, Minus, Check, ShoppingBag, Eye, Trash2,
+  Plus, Minus, Check, ShoppingBag, Eye, EyeOff, Trash2,
   Calendar, FileText, AlertTriangle, ChevronRight,
   TrendingUp, CircleDollarSign, CheckSquare, PlusCircle,
   MapPin, Edit, RefreshCw, LogOut
 } from 'lucide-react';
 
-export default function MobilePortal({ onNotification }) {
+export default function MobilePortal({ onNotification: parentOnNotification }) {
   // Mobile Router State
   const [screen, setScreen] = useState('splash'); // splash, login, main
+  const [localToasts, setLocalToasts] = useState([]);
+
+  // Local toast handler to render notifications directly within the app viewport
+  const onNotification = (type, message) => {
+    if (parentOnNotification) {
+      parentOnNotification(type, message);
+    }
+    const id = Date.now() + Math.random().toString(36).substr(2, 5);
+    setLocalToasts(prev => [...prev, { id, type, message }]);
+    
+    setTimeout(() => {
+      setLocalToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
   const [activeTab, setActiveTab] = useState('home'); // home, products, orders, dues, profile (for retailer) or dashboard, retailers, orders, dues, profile (for salesman)
   
   // Auth state
   const [authMethod, setAuthMethod] = useState('password'); // password, otp
   const [mobileNumber, setMobileNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [user, setUser] = useState(null);
@@ -259,7 +275,7 @@ export default function MobilePortal({ onNotification }) {
         onNotification('error', data.error || 'Failed to send OTP');
       }
     } catch (err) {
-      onNotification('error', 'Server connection failed');
+      onNotification('error', `Server connection failed: ${err.message}`);
     }
   };
 
@@ -285,7 +301,7 @@ export default function MobilePortal({ onNotification }) {
         onNotification('error', data.error || 'OTP verification failed');
       }
     } catch (err) {
-      onNotification('error', 'Server connection failed');
+      onNotification('error', `Server connection failed: ${err.message}`);
     }
   };
 
@@ -311,7 +327,7 @@ export default function MobilePortal({ onNotification }) {
         onNotification('error', data.error || 'Invalid credentials');
       }
     } catch (err) {
-      onNotification('error', 'Server connection failed');
+      onNotification('error', `Server connection failed: ${err.message}`);
     }
   };
 
@@ -1480,13 +1496,32 @@ export default function MobilePortal({ onNotification }) {
               <div style={{ position: 'relative' }}>
                 <Lock size={16} color="var(--text-light)" style={{ position: 'absolute', left: '10px', top: '10px' }} />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter secret password"
                   className="form-control"
-                  style={{ paddingLeft: '32px' }}
+                  style={{ paddingLeft: '32px', paddingRight: '36px' }}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '9px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-light)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0
+                  }}
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
           ) : (
@@ -1770,6 +1805,20 @@ export default function MobilePortal({ onNotification }) {
         </div>
 
       </div>
+
+      {/* Local Mobile Toasts Container */}
+      {localToasts.length > 0 && (
+        <div className="mobile-toast-container">
+          {localToasts.map(toast => (
+            <div key={toast.id} className={`mobile-toast mobile-toast-${toast.type}`}>
+              <div className="mobile-toast-body">
+                <strong>{toast.type.toUpperCase()}: </strong>
+                <span>{toast.message}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
     </div>
   );

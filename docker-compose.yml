@@ -28,7 +28,7 @@ services:
       DB_PASSWORD: password123
       PORT: 5000
     ports:
-      - "5000:5000"
+      - "5001:5000"
     depends_on:
       - db
 
@@ -39,7 +39,7 @@ services:
     container_name: b2b_distributor_frontend
     restart: always
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - backend
 

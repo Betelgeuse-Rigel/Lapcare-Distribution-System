@@ -3,7 +3,8 @@ import { API_BASE } from '../config';
 import { 
   LayoutDashboard, UserCheck, Users, ShieldAlert,
   ShoppingBag, HelpCircle, Key, Plus, FileText, CheckCircle, 
-  XCircle, Edit, DollarSign, Settings, Download, Trash2, Layers
+  XCircle, Edit, DollarSign, Settings, Download, Trash2, Layers,
+  Eye, EyeOff
 } from 'lucide-react';
 
 export default function AdminPortal({ onNotification }) {
@@ -11,6 +12,7 @@ export default function AdminPortal({ onNotification }) {
   const [token, setToken] = useState(localStorage.getItem('admin_token'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Dashboard & Navigation States
   const [activeSubTab, setActiveSubTab] = useState('dashboard');
@@ -623,15 +625,36 @@ export default function AdminPortal({ onNotification }) {
 
           <div className="form-group">
             <label style={{ color: '#cbd5e1' }}>Security Password</label>
-            <input 
-              type="password" 
-              placeholder="••••••••" 
-              className="form-control"
-              style={{ background: '#0f172a', border: '1px solid #475569', color: 'white' }}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="••••••••" 
+                className="form-control"
+                style={{ background: '#0f172a', border: '1px solid #475569', color: 'white', paddingRight: '36px' }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '9px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 0
+                }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           <button 

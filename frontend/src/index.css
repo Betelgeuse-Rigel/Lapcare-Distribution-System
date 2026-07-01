@@ -436,3 +436,52 @@ h1, h2, h3, h4, h5, h6 {
   align-items: flex-start;
   animation: slideIn 0.3s ease-out;
 }
+
+/* Mobile Internal Toasts inside MobilePortal */
+.mobile-toast-container {
+  position: absolute;
+  bottom: 60px; /* Above the bottom navigation tabs */
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.mobile-toast {
+  background: rgba(33, 33, 33, 0.95);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.7rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+  border-left: 4px solid var(--primary);
+}
+
+.mobile-toast-success {
+  border-left-color: var(--success);
+}
+
+.mobile-toast-warning {
+  border-left-color: var(--warning);
+}
+
+.mobile-toast-error {
+  border-left-color: var(--danger);
+}
+
+.mobile-toast-info {
+  border-left-color: var(--info);
+}
+
+.mobile-toast-body {
+  flex: 1;
+  line-height: 1.3;
+}

@@ -6,7 +6,14 @@ import DeviceFrame from './components/DeviceFrame';
 
 export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
-  const [activePortal, setActivePortal] = useState(queryParams.get('view') === 'mobile' ? 'mobile' : 'admin');
+  const isMobileApp = 
+    queryParams.get('standalone') === 'true' || 
+    window.innerWidth <= 768 || 
+    (typeof window !== 'undefined' && window.Capacitor);
+
+  const [activePortal, setActivePortal] = useState(
+    isMobileApp || queryParams.get('view') === 'mobile' ? 'mobile' : 'admin'
+  );
   const [toasts, setToasts] = useState([]);
 
   // Trigger global toast alert
@@ -19,6 +26,14 @@ export default function App() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
   };
+
+  if (isMobileApp) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#fff' }}>
+        <MobilePortal onNotification={showToast} />
+      </div>
+    );
+  }
 
   return (
     <div className="admin-shell">
