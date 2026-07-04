@@ -11,9 +11,12 @@ deploy_to_production:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - |
+      echo "DEBUG: EC2_SSH_KEY length: ${#EC2_SSH_KEY}"
       if [ -f "$EC2_SSH_KEY" ]; then
+        echo "DEBUG: EC2_SSH_KEY is a file path: $EC2_SSH_KEY"
         cat "$EC2_SSH_KEY" > ~/.ssh/id_rsa
       else
+        echo "DEBUG: EC2_SSH_KEY is a string"
         echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa.raw
         tr -d '\r' < ~/.ssh/id_rsa.raw > ~/.ssh/id_rsa.clean
         # If it has spaces instead of newlines, reconstruct standard multiline PEM
