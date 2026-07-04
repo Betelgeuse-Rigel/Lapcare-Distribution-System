@@ -3,7 +3,7 @@ stages:
 
 deploy_to_production:
   stage: deploy
-  image: alpine:latest
+  image: alpine:3.15
   only:
     - main
   before_script:
