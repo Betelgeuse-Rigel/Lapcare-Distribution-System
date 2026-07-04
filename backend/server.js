@@ -2177,8 +2177,8 @@ app.post('/api/admin/cron/check-overdue', async (req, res) => {
 // Server Listen
 sequelize.authenticate().then(async () => {
   console.log('Connected to PostgreSQL successfully via Sequelize.');
-  // Sync all models (creates tables if they do not exist)
-  await sequelize.sync();
+  // Sync all models (creates/updates tables if they do not exist/are out of sync)
+  await sequelize.sync({ alter: true });
   console.log('Database models synced.');
   app.listen(PORT, () => {
     console.log(`Backend server running on http://localhost:${PORT}`);
