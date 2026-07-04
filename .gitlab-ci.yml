@@ -3,7 +3,7 @@ stages:
 
 deploy_to_production:
   stage: deploy
-  image: alpine:latest
+  image: alpine:3.15
   only:
     - main
   before_script:
@@ -14,7 +14,19 @@ deploy_to_production:
       if [ -f "$EC2_SSH_KEY" ]; then
         cat "$EC2_SSH_KEY" > ~/.ssh/id_rsa
       else
-        echo "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+        echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa.raw
+        tr -d '\r' < ~/.ssh/id_rsa.raw > ~/.ssh/id_rsa.clean
+        # If it has spaces instead of newlines, reconstruct standard multiline PEM
+        if grep -q " " ~/.ssh/id_rsa.clean; then
+          HEADER=$(grep -o "\-\-\-\-\-BEGIN[^-]*\-\-\-\-\-" ~/.ssh/id_rsa.clean | head -n 1)
+          FOOTER=$(grep -o "\-\-\-\-\-END[^-]*\-\-\-\-\-" ~/.ssh/id_rsa.clean | head -n 1)
+          CONTENT=$(sed -e "s/$HEADER//" -e "s/$FOOTER//" ~/.ssh/id_rsa.clean | tr -d ' ')
+          echo "$HEADER" > ~/.ssh/id_rsa
+          echo "$CONTENT" | fold -w 64 >> ~/.ssh/id_rsa
+          echo "$FOOTER" >> ~/.ssh/id_rsa
+        else
+          cat ~/.ssh/id_rsa.clean > ~/.ssh/id_rsa
+        fi
       fi
     - echo "" >> ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
