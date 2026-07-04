@@ -46,7 +46,6 @@ const SalesmanTarget = sequelize.define('SalesmanTarget', {
   targetDuesCollected: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 }
 });
 
-// Retailers model
 const Retailer = sequelize.define('Retailer', {
   name: { type: DataTypes.STRING, allowNull: false },
   mobileNumber: { type: DataTypes.STRING, allowNull: false, unique: true },
@@ -54,11 +53,18 @@ const Retailer = sequelize.define('Retailer', {
   passwordHash: { type: DataTypes.STRING, allowNull: false },
   otp: { type: DataTypes.STRING, allowNull: true },
   otpExpiresAt: { type: DataTypes.DATE, allowNull: true },
-  category: { type: DataTypes.ENUM('T1', 'T2', 'T3'), defaultValue: 'T1' },
+  category: { type: DataTypes.ENUM('T1', 'T2', 'T3'), defaultValue: 'T3' },
   creditLimit: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
   currentOutstanding: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
   fcmToken: { type: DataTypes.STRING, allowNull: true },
-  isActive: { type: DataTypes.BOOLEAN, defaultValue: true }
+  isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+  // Credit term request fields
+  creditTermRequest: { type: DataTypes.ENUM('none', 'due_7', 'due_15', 'due_30'), defaultValue: 'none' },
+  creditTermApproved: { type: DataTypes.ENUM('none', 'due_7', 'due_15', 'due_30'), defaultValue: 'none' },
+  creditRequestStatus: { type: DataTypes.ENUM('none', 'pending', 'approved', 'rejected'), defaultValue: 'none' },
+  // Order verification OTP
+  orderOtp: { type: DataTypes.STRING, allowNull: true },
+  orderOtpExpiresAt: { type: DataTypes.DATE, allowNull: true }
 });
 
 // Retailer Addresses model
@@ -107,7 +113,7 @@ const Order = sequelize.define('Order', {
   orderNumber: { type: DataTypes.STRING, allowNull: false, unique: true },
   deliveryAddressSnapshot: { type: DataTypes.JSON, allowNull: false },
   totalProductAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
-  paymentType: { type: DataTypes.ENUM('cod', 'due_7', 'due_15'), allowNull: false },
+  paymentType: { type: DataTypes.ENUM('cod', 'qr_pay', 'due_7', 'due_15', 'due_30'), allowNull: false },
   surchargeAmount: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
   finalAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
   status: { 

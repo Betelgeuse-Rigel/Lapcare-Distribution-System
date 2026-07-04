@@ -30,8 +30,10 @@ async function seed() {
   // 2. Seed Payment Configs
   const configs = [
     { paymentType: 'cod', label: 'Cash on Delivery (COD)', flatCharge: 50.00, percentageRate: 0.00 },
+    { paymentType: 'qr_pay', label: 'QR Code Payment', flatCharge: 0.00, percentageRate: 0.00 },
     { paymentType: 'due_7', label: 'Due 7 Days', flatCharge: 0.00, percentageRate: 1.00 },
-    { paymentType: 'due_15', label: 'Due 15 Days', flatCharge: 0.00, percentageRate: 2.00 }
+    { paymentType: 'due_15', label: 'Due 15 Days', flatCharge: 0.00, percentageRate: 2.00 },
+    { paymentType: 'due_30', label: 'Due 30 Days', flatCharge: 0.00, percentageRate: 3.00 }
   ];
   for (const cfg of configs) {
     await PaymentConfig.create(cfg);

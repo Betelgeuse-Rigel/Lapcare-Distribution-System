@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE } from '../config';
+import { API_BASE, resolveImageUrl } from '../config';
 import { 
   LayoutDashboard, UserCheck, Users, ShieldAlert,
   ShoppingBag, HelpCircle, Key, Plus, FileText, CheckCircle, 
@@ -39,7 +39,7 @@ export default function AdminPortal({ onNotification }) {
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
 
   // Form payload states
-  const [retailerForm, setRetailerForm] = useState({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
+  const [retailerForm, setRetailerForm] = useState({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '', creditTermApproved: 'none', creditRequestStatus: 'none' });
   const [salesmanForm, setSalesmanForm] = useState({ name: '', mobileNumber: '', email: '', password: '' });
   const [productForm, setProductForm] = useState({ name: '', sku: '', brand: '', categoryId: '', description: '', priceT1: 0, priceT2: 0, priceT3: 0, stockQuantity: 0, lowStockThreshold: 5, isFeatured: false, imageUrl: '' });
   const [categoryForm, setCategoryForm] = useState({ name: '', imageUrl: '', sortOrder: 0 });
@@ -294,12 +294,35 @@ export default function AdminPortal({ onNotification }) {
         onNotification('success', editingRetailerId ? 'Retailer updated' : 'Retailer created successfully');
         setRetailerModalOpen(false);
         setEditingRetailerId(null);
-        setRetailerForm({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '' });
+        setRetailerForm({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '', creditTermApproved: 'none', creditRequestStatus: 'none' });
         fetchRetailers();
         fetchDashboard();
       }
     } catch (err) {
       onNotification('error', 'Failed to save retailer');
+    }
+  };
+
+  const handleReviewCreditTerm = async (retailerId, status, approvedTerm) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/retailers/${retailerId}/review-credit-term`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status, approvedTerm })
+      });
+      if (res.ok) {
+        onNotification('success', `Credit period request ${status === 'approved' ? 'approved' : 'rejected'} successfully!`);
+        fetchRetailers();
+        fetchDashboard();
+      } else {
+        const err = await res.json();
+        onNotification('error', err.error || 'Failed to review credit term');
+      }
+    } catch (err) {
+      onNotification('error', `Connection error: ${err.message}`);
     }
   };
 
@@ -353,6 +376,31 @@ export default function AdminPortal({ onNotification }) {
       }
     } catch (err) {
       onNotification('error', 'Failed to save targets');
+    }
+  };
+
+  const handleFileUpload = async (file, callback) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok) {
+        callback(data.url);
+        onNotification('success', 'Image uploaded successfully!');
+      } else {
+        onNotification('error', data.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      onNotification('error', `Upload error: ${err.message}`);
     }
   };
 
@@ -664,10 +712,6 @@ export default function AdminPortal({ onNotification }) {
           >
             Authenticate & Access
           </button>
-          
-          <div style={{ color: '#94a3b8', fontSize: '0.65rem', textAlign: 'center', marginTop: '6px' }}>
-            Hint: admin@company.com / Admin@123
-          </div>
         </form>
       </div>
     );
@@ -1008,6 +1052,7 @@ export default function AdminPortal({ onNotification }) {
                     <th>Tier Category</th>
                     <th>Outstanding Dues</th>
                     <th>Credit Limit</th>
+                    <th>Credit Period / Requests</th>
                     <th>Assigned Salesman</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -1027,6 +1072,36 @@ export default function AdminPortal({ onNotification }) {
                         ₹{parseFloat(r.currentOutstanding).toLocaleString()}
                       </td>
                       <td>₹{parseFloat(r.creditLimit).toLocaleString()}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontWeight: 600 }}>
+                            {r.creditTermApproved === 'none' || !r.creditTermApproved ? 'COD' : r.creditTermApproved.replace('_', ' ').toUpperCase()}
+                          </span>
+                          {r.creditRequestStatus === 'pending' && (
+                            <div style={{ padding: '6px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '4px', marginTop: '2px' }}>
+                              <span style={{ fontSize: '0.65rem', color: '#b45309', display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>
+                                Requested: {r.creditTermRequest.replace('_', ' ').toUpperCase()}
+                              </span>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button 
+                                  onClick={() => handleReviewCreditTerm(r.id, 'approved', r.creditTermRequest)}
+                                  className="btn btn-primary"
+                                  style={{ padding: '2px 6px', fontSize: '0.6rem', background: '#059669', border: 'none' }}
+                                >
+                                  Approve
+                                </button>
+                                <button 
+                                  onClick={() => handleReviewCreditTerm(r.id, 'rejected')}
+                                  className="btn btn-outline"
+                                  style={{ padding: '2px 6px', fontSize: '0.6rem', color: '#dc2626', borderColor: '#dc2626' }}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td>{r.Salesman ? r.Salesman.name : <em style={{ color: 'var(--text-light)' }}>None</em>}</td>
                       <td>
                         <span className={`badge ${r.isActive ? 'badge-success' : 'badge-danger'}`}>
@@ -1044,7 +1119,9 @@ export default function AdminPortal({ onNotification }) {
                               category: r.category,
                               creditLimit: r.creditLimit,
                               assignedSalesmanId: r.assignedSalesmanId || '',
-                              isActive: r.isActive
+                              isActive: r.isActive,
+                              creditTermApproved: r.creditTermApproved || 'none',
+                              creditRequestStatus: r.creditRequestStatus || 'none'
                             });
                             setRetailerModalOpen(true);
                           }}
@@ -1139,6 +1216,19 @@ export default function AdminPortal({ onNotification }) {
                       {salesmen.map(sm => (
                         <option key={sm.id} value={sm.id}>{sm.name}</option>
                       ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Approved Credit Period</label>
+                    <select 
+                      className="form-control"
+                      value={retailerForm.creditTermApproved || 'none'}
+                      onChange={(e) => setRetailerForm({ ...retailerForm, creditTermApproved: e.target.value })}
+                    >
+                      <option value="none">No Credit (COD / UPI)</option>
+                      <option value="due_7">7 Days Credit</option>
+                      <option value="due_15">15 Days Credit</option>
+                      <option value="due_30">30 Days Credit</option>
                     </select>
                   </div>
                   {editingRetailerId && (
@@ -1382,7 +1472,7 @@ export default function AdminPortal({ onNotification }) {
                           border: '1px solid var(--border-color)'
                         }}>
                           {c.imageUrl ? (
-                            <img src={c.imageUrl} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={resolveImageUrl(c.imageUrl, API_BASE)} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
                             <span style={{ fontSize: '1.2rem' }}>📂</span>
                           )}
@@ -1448,16 +1538,27 @@ export default function AdminPortal({ onNotification }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Image URL</label>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input 
-                        type="url" placeholder="https://..." className="form-control" 
-                        value={categoryForm.imageUrl} 
-                        onChange={(e) => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })} 
-                      />
-                      {categoryForm.imageUrl && (
-                        <img src={categoryForm.imageUrl} alt="Preview" style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }} onError={(e) => e.target.style.display='none'} />
-                      )}
+                    <label>Category Image</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input 
+                          type="url" placeholder="https://..." className="form-control" 
+                          value={categoryForm.imageUrl} 
+                          onChange={(e) => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })} 
+                        />
+                        {categoryForm.imageUrl && (
+                          <img src={resolveImageUrl(categoryForm.imageUrl, API_BASE)} alt="Preview" style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }} onError={(e) => e.target.style.display='none'} />
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Or Upload:</span>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          style={{ fontSize: '0.7rem' }}
+                          onChange={(e) => handleFileUpload(e.target.files[0], (url) => setCategoryForm({ ...categoryForm, imageUrl: url }))}
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="form-group">
@@ -1540,7 +1641,7 @@ export default function AdminPortal({ onNotification }) {
                             border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                           }}>
                             {p.images && p.images[0] ? (
-                              <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={resolveImageUrl(p.images[0], API_BASE)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <span style={{ fontSize: '1.2rem' }}>📦</span>
                             )}
@@ -1679,23 +1780,34 @@ export default function AdminPortal({ onNotification }) {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Product Image URL</label>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input 
-                        type="url" 
-                        placeholder="https://images.unsplash.com/..." 
-                        className="form-control" 
-                        value={productForm.imageUrl} 
-                        onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })} 
-                      />
-                      {productForm.imageUrl && (
-                        <img 
-                          src={productForm.imageUrl} 
-                          alt="Preview" 
-                          style={{ width: '38px', height: '38px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
-                          onError={(e) => e.target.style.display = 'none'}
+                    <label>Product Image</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input 
+                          type="url" 
+                          placeholder="https://images.unsplash.com/..." 
+                          className="form-control" 
+                          value={productForm.imageUrl} 
+                          onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })} 
                         />
-                      )}
+                        {productForm.imageUrl && (
+                          <img 
+                            src={resolveImageUrl(productForm.imageUrl, API_BASE)} 
+                            alt="Preview" 
+                            style={{ width: '38px', height: '38px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
+                            onError={(e) => e.target.style.display = 'none'}
+                          />
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Or Upload:</span>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          style={{ fontSize: '0.7rem' }}
+                          onChange={(e) => handleFileUpload(e.target.files[0], (url) => setProductForm({ ...productForm, imageUrl: url }))}
+                        />
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1738,7 +1850,7 @@ export default function AdminPortal({ onNotification }) {
                     border: '1px solid var(--border-color)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
                   }}>
                     {selectedProductDetails.images && selectedProductDetails.images[0] ? (
-                      <img src={selectedProductDetails.images[0]} alt={selectedProductDetails.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px' }} />
+                      <img src={resolveImageUrl(selectedProductDetails.images[0], API_BASE)} alt={selectedProductDetails.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px' }} />
                     ) : (
                       <div style={{ textAlign: 'center', color: 'var(--text-light)' }}>
                         <span style={{ fontSize: '3rem' }}>📦</span>

@@ -4,6 +4,28 @@ const morgan = require('morgan');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
+
 
 const {
   sequelize,
@@ -27,8 +49,10 @@ const PORT = 5000;
 const JWT_SECRET = 'b2b_distributor_super_secret_key';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('dev'));
+app.use('/uploads', express.static(uploadDir));
 
 // Shared Live Log Queue for Frontend OTP/FCM Simulation
 let liveLogs = [];
@@ -42,6 +66,53 @@ function addLiveLog(type, target, message) {
   };
   liveLogs.push(logEntry);
   if (liveLogs.length > 50) liveLogs.shift(); // Keep last 50 logs
+}
+
+// Dynamic outstanding dues synchronizer helper
+async function syncRetailerOutstanding(retailerId, transaction = null) {
+  const options = transaction ? { transaction } : {};
+  
+  // Sum of all orders placed on credit that are NOT cancelled
+  const orders = await Order.findAll({
+    where: {
+      retailerId,
+      status: { [Op.ne]: 'cancelled' },
+      paymentType: { [Op.in]: ['due_7', 'due_15', 'due_30'] }
+    },
+    ...options
+  });
+  
+  const totalOrdersAmount = orders.reduce((sum, order) => sum + parseFloat(order.finalAmount || 0), 0);
+  
+  // Find all due payment records for this retailer
+  const duePayments = await DuePayment.findAll({
+    where: { retailerId },
+    ...options
+  });
+  const duePaymentIds = duePayments.map(dp => dp.id);
+  
+  // Sum of all payments recorded
+  let totalPaymentsAmount = 0;
+  if (duePaymentIds.length > 0) {
+    const payments = await DuePaymentTransaction.findAll({
+      where: {
+        duePaymentId: { [Op.in]: duePaymentIds }
+      },
+      ...options
+    });
+    totalPaymentsAmount = payments.reduce((sum, pay) => sum + parseFloat(pay.amountReceived || 0), 0);
+  }
+  
+  const newOutstanding = Math.max(0, totalOrdersAmount - totalPaymentsAmount);
+  
+  // Update the retailer's currentOutstanding
+  const retailer = await Retailer.findByPk(retailerId, options);
+  if (retailer) {
+    retailer.currentOutstanding = newOutstanding;
+    await retailer.save(options);
+  }
+  
+  return newOutstanding;
 }
 
 // REST Log Endpoint
@@ -170,6 +241,73 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
+// POST /api/auth/register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, mobileNumber, email, password } = req.body;
+  if (!name || !mobileNumber || !email || !password) {
+    return res.status(400).json({ error: 'Name, mobile number, email, and password are required' });
+  }
+
+  try {
+    // Check if retailer or salesman already exists
+    const existingRetailer = await Retailer.findOne({
+      where: {
+        [Op.or]: [{ mobileNumber }, { email }]
+      }
+    });
+
+    if (existingRetailer) {
+      return res.status(400).json({ error: 'Mobile number or email already registered' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const retailer = await Retailer.create({
+      name,
+      mobileNumber,
+      email,
+      passwordHash,
+      category: 'T3',
+      creditLimit: 0.00,
+      currentOutstanding: 0.00,
+      isActive: true
+    });
+
+    // Create default address
+    await RetailerAddress.create({
+      retailerId: retailer.id,
+      label: 'Store Default',
+      addressLine1: 'Update Address Line 1',
+      city: 'Unknown',
+      state: 'Unknown',
+      pincode: '000000',
+      isDefault: true
+    });
+
+    // Create JWT
+    const tokenPayload = {
+      id: retailer.id,
+      name: retailer.name,
+      role: 'retailer',
+      category: 'T3'
+    };
+    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
+
+    res.status(201).json({
+      token,
+      user: {
+        id: retailer.id,
+        name: retailer.name,
+        role: 'retailer',
+        email: retailer.email,
+        mobileNumber: retailer.mobileNumber,
+        category: 'T3'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/auth/login-password
 app.post('/api/auth/login-password', async (req, res) => {
   const { mobileNumber, password } = req.body;
@@ -274,6 +412,7 @@ app.use('/api/retailer/addresses', authenticateToken, enforceRole(['retailer', '
 // GET /api/retailer/dashboard
 app.get('/api/retailer/dashboard', authenticateToken, enforceRole(['retailer']), async (req, res) => {
   try {
+    await syncRetailerOutstanding(req.user.id);
     const retailer = await Retailer.findByPk(req.user.id);
     const pendingOrdersCount = await Order.count({
       where: { retailerId: req.user.id, status: { [Op.in]: ['pending', 'pending_approval'] } }
@@ -291,7 +430,10 @@ app.get('/api/retailer/dashboard', authenticateToken, enforceRole(['retailer']),
         category: retailer.category,
         creditLimit: parseFloat(retailer.creditLimit),
         currentOutstanding: parseFloat(retailer.currentOutstanding),
-        availableCredit: Math.max(0, parseFloat(retailer.creditLimit) - parseFloat(retailer.currentOutstanding))
+        availableCredit: Math.max(0, parseFloat(retailer.creditLimit) - parseFloat(retailer.currentOutstanding)),
+        creditTermRequest: retailer.creditTermRequest,
+        creditTermApproved: retailer.creditTermApproved,
+        creditRequestStatus: retailer.creditRequestStatus
       },
       pendingOrdersCount,
       featuredProducts: featuredProducts.map(p => {
@@ -322,6 +464,30 @@ app.get('/api/retailer/credit', authenticateToken, enforceRole(['retailer']), as
     res.status(500).json({ error: err.message });
   }
 });
+
+// POST /api/retailer/request-credit
+app.post('/api/retailer/request-credit', authenticateToken, enforceRole(['retailer']), async (req, res) => {
+  const { creditTermRequest } = req.body;
+  if (!['none', 'due_7', 'due_15', 'due_30'].includes(creditTermRequest)) {
+    return res.status(400).json({ error: 'Invalid credit term requested' });
+  }
+  
+  try {
+    const retailer = await Retailer.findByPk(req.user.id);
+    if (!retailer) return res.status(404).json({ error: 'Retailer not found' });
+    
+    retailer.creditTermRequest = creditTermRequest;
+    retailer.creditRequestStatus = creditTermRequest === 'none' ? 'none' : 'pending';
+    await retailer.save();
+    
+    addLiveLog('SYSTEM', retailer.name, `Submitted credit request for ${creditTermRequest.replace('_', ' ')}`);
+    
+    res.json({ success: true, retailer });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ADDRESSES CRUD (Retailer/Salesman context)
 app.get('/api/retailer/addresses', async (req, res) => {
@@ -696,6 +862,31 @@ async function generateOrderNumber() {
   return `ORD-${dateStr}-${seq}`;
 }
 
+// POST /api/orders/generate-otp
+app.post('/api/orders/generate-otp', authenticateToken, enforceRole(['salesman']), async (req, res) => {
+  const { retailerId } = req.body;
+  if (!retailerId) return res.status(400).json({ error: 'Retailer ID is required' });
+  
+  try {
+    const retailer = await Retailer.findByPk(retailerId);
+    if (!retailer || !retailer.isActive) {
+      return res.status(404).json({ error: 'Retailer not found or inactive' });
+    }
+    
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    retailer.orderOtp = otpCode;
+    retailer.orderOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    await retailer.save();
+    
+    addLiveLog('SMS', retailer.mobileNumber, `[OTP Simulation] Order Verification Code: ${otpCode}. Valid for 10 minutes.`);
+    
+    res.json({ success: true, message: 'Order verification OTP generated', otpSim: otpCode });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/orders
 app.post('/api/orders', authenticateToken, enforceRole(['retailer', 'salesman']), async (req, res) => {
   const { retailerId, items, paymentType, deliveryAddressId } = req.body;
@@ -704,7 +895,7 @@ app.post('/api/orders', authenticateToken, enforceRole(['retailer', 'salesman'])
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Items array is empty or missing' });
   }
-  if (!paymentType || !['cod', 'due_7', 'due_15'].includes(paymentType)) {
+  if (!paymentType || !['cod', 'due_7', 'due_15', 'due_30', 'qr_pay'].includes(paymentType)) {
     return res.status(400).json({ error: 'Invalid or missing paymentType' });
   }
   if (!deliveryAddressId) {
@@ -723,10 +914,42 @@ app.post('/api/orders', authenticateToken, enforceRole(['retailer', 'salesman'])
       return res.status(404).json({ error: 'Retailer account not active or not found' });
     }
 
-    // Verify salesman assignment
-    if (req.user.role === 'salesman' && retailer.assignedSalesmanId !== req.user.id) {
-      await t.rollback();
-      return res.status(403).json({ error: 'Retailer is not assigned to you' });
+    // Credit period verification
+    if (['due_7', 'due_15', 'due_30'].includes(paymentType)) {
+      let allowed = false;
+      const approved = retailer.creditTermApproved;
+      if (paymentType === 'due_7' && ['due_7', 'due_15', 'due_30'].includes(approved)) allowed = true;
+      if (paymentType === 'due_15' && ['due_15', 'due_30'].includes(approved)) allowed = true;
+      if (paymentType === 'due_30' && approved === 'due_30') allowed = true;
+      
+      if (!allowed) {
+        await t.rollback();
+        return res.status(403).json({ error: `Retailer is not approved for credit payment term: ${paymentType.replace('_', ' ')}` });
+      }
+    }
+
+    // Verify salesman assignment and order verification OTP
+    if (req.user.role === 'salesman') {
+      if (retailer.assignedSalesmanId !== req.user.id) {
+        await t.rollback();
+        return res.status(403).json({ error: 'Retailer is not assigned to you' });
+      }
+
+      const { orderOtp } = req.body;
+      if (!orderOtp) {
+        await t.rollback();
+        return res.status(400).json({ error: 'Order verification OTP is required' });
+      }
+
+      if (retailer.orderOtp !== orderOtp || new Date() > new Date(retailer.orderOtpExpiresAt)) {
+        await t.rollback();
+        return res.status(400).json({ error: 'Invalid or expired order verification OTP' });
+      }
+
+      // Clear the OTP fields on successful checkout verification
+      retailer.orderOtp = null;
+      retailer.orderOtpExpiresAt = null;
+      await retailer.save({ transaction: t });
     }
 
     // Fetch delivery address
@@ -972,6 +1195,7 @@ app.put('/api/orders/:id/cancel', authenticateToken, enforceRole(['retailer', 's
       
       order.status = 'cancelled';
       await order.save({ transaction: t });
+      await syncRetailerOutstanding(order.retailerId, t);
       await t.commit();
     } catch (err) {
       await t.rollback();
@@ -1124,9 +1348,24 @@ function authenticateAdmin(req, res, next) {
   });
 }
 
+// POST /api/admin/upload
+app.post('/api/admin/upload', authenticateAdmin, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file provided' });
+  }
+  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  res.json({ success: true, url: fileUrl });
+});
+
 // GET /api/admin/dashboard
 app.get('/api/admin/dashboard', authenticateAdmin, async (req, res) => {
   try {
+    // Sync outstanding balance for all retailers to ensure dashboard accuracy
+    const allRetailers = await Retailer.findAll({ attributes: ['id'] });
+    for (const ret of allRetailers) {
+      await syncRetailerOutstanding(ret.id);
+    }
+
     const today = new Date();
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
     const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
@@ -1348,7 +1587,9 @@ app.post('/api/admin/retailers', authenticateAdmin, async (req, res) => {
     const ret = await Retailer.create({
       name, mobileNumber, email, passwordHash, category,
       creditLimit: creditLimit || 0.00,
-      assignedSalesmanId: assignedSalesmanId || null
+      assignedSalesmanId: assignedSalesmanId || null,
+      creditTermApproved: req.body.creditTermApproved || 'none',
+      creditRequestStatus: req.body.creditRequestStatus || 'none'
     });
     res.status(201).json(ret);
   } catch (err) {
@@ -1358,13 +1599,13 @@ app.post('/api/admin/retailers', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/retailers/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, mobileNumber, email, category, creditLimit, assignedSalesmanId, isActive, password } = req.body;
+  const { name, mobileNumber, email, category, creditLimit, assignedSalesmanId, isActive, password, creditTermApproved, creditRequestStatus } = req.body;
 
   try {
     const ret = await Retailer.findByPk(id);
     if (!ret) return res.status(404).json({ error: 'Retailer not found' });
 
-    const updates = { name, mobileNumber, email, category, creditLimit, assignedSalesmanId, isActive };
+    const updates = { name, mobileNumber, email, category, creditLimit, assignedSalesmanId, isActive, creditTermApproved, creditRequestStatus };
     if (password) {
       updates.passwordHash = await bcrypt.hash(password, 12);
     }
@@ -1403,6 +1644,35 @@ app.patch('/api/admin/retailers/:id/credit-limit', authenticateAdmin, async (req
     res.status(500).json({ error: err.message });
   }
 });
+
+// POST /api/admin/retailers/:id/review-credit-term
+app.post('/api/admin/retailers/:id/review-credit-term', authenticateAdmin, async (req, res) => {
+  const { status, approvedTerm } = req.body; // status: 'approved' or 'rejected'
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  
+  try {
+    const retailer = await Retailer.findByPk(req.params.id);
+    if (!retailer) return res.status(404).json({ error: 'Retailer not found' });
+    
+    if (status === 'approved') {
+      retailer.creditTermApproved = approvedTerm || retailer.creditTermRequest;
+      retailer.creditRequestStatus = 'approved';
+    } else {
+      retailer.creditRequestStatus = 'rejected';
+    }
+    
+    await retailer.save();
+    
+    addLiveLog('SYSTEM', retailer.name, `Credit request ${status} by admin (Term: ${retailer.creditTermApproved})`);
+    
+    res.json({ success: true, retailer });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // PRODUCT CRUD (ADMIN)
 app.get('/api/admin/products', authenticateAdmin, async (req, res) => {
@@ -1576,12 +1846,15 @@ app.patch('/api/admin/orders/:id/status', authenticateAdmin, async (req, res) =>
     try {
       order.status = status;
 
-      // Rule: Confirmed status transitions on cod/due_7/due_15 orders
+      // Rule: Confirmed status transitions on cod/due_7/due_15/due_30 orders
       if (status === 'confirmed' && oldStatus !== 'confirmed' && oldStatus !== 'delivered' && oldStatus !== 'shipped' && oldStatus !== 'packed') {
         
-        // If payment type is due_7 or due_15, create DuePayment
-        if (order.paymentType === 'due_7' || order.paymentType === 'due_15') {
-          const days = order.paymentType === 'due_7' ? 7 : 15;
+        // If payment type is due_7, due_15 or due_30, create DuePayment
+        if (['due_7', 'due_15', 'due_30'].includes(order.paymentType)) {
+          let days = 7;
+          if (order.paymentType === 'due_15') days = 15;
+          else if (order.paymentType === 'due_30') days = 30;
+
           const dueDay = new Date();
           dueDay.setDate(dueDay.getDate() + days);
 
@@ -1596,17 +1869,40 @@ app.patch('/api/admin/orders/:id/status', authenticateAdmin, async (req, res) =>
             balanceDue: order.finalAmount,
             status: 'active'
           }, { transaction: t });
-
-          // Update retailer's outstanding balance
-          const retailer = await Retailer.findByPk(order.retailerId, { transaction: t, lock: t.LOCK.UPDATE });
-          retailer.currentOutstanding = parseFloat(retailer.currentOutstanding) + parseFloat(order.finalAmount);
-          await retailer.save({ transaction: t });
         }
         
-        order.dueDate = order.paymentType === 'cod' ? null : new Date(Date.now() + (order.paymentType === 'due_7' ? 7 : 15) * 24 * 60 * 60 * 1000);
+        const days = order.paymentType === 'due_7' ? 7 : (order.paymentType === 'due_15' ? 15 : 30);
+        order.dueDate = order.paymentType === 'cod' ? null : new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      }
+
+      // Rule: Cancelled status transition (Admin side)
+      if (status === 'cancelled' && oldStatus !== 'cancelled') {
+        // 1. Refund stock
+        const items = await OrderItem.findAll({ where: { orderId: order.id }, transaction: t });
+        for (const item of items) {
+          const product = await Product.findByPk(item.productId, { transaction: t, lock: t.LOCK.UPDATE });
+          if (product) {
+            product.stockQuantity += item.quantity;
+            await product.save({ transaction: t });
+          }
+        }
+
+        // 2. Clear due payment record if it exists
+        if (['due_7', 'due_15', 'due_30'].includes(order.paymentType)) {
+          const due = await DuePayment.findOne({ where: { orderId: order.id }, transaction: t });
+          if (due) {
+            due.status = 'paid';
+            due.balanceDue = 0.00;
+            await due.save({ transaction: t });
+          }
+        }
       }
 
       await order.save({ transaction: t });
+      
+      // Update retailer's outstanding balance
+      await syncRetailerOutstanding(order.retailerId, t);
+      
       await t.commit();
     } catch (err) {
       await t.rollback();
@@ -1776,11 +2072,6 @@ app.post('/api/admin/dues/:id/record-payment', authenticateAdmin, async (req, re
 
     await due.save({ transaction: t });
 
-    // Deduct from Retailer's Outstanding Balance
-    const retailer = await Retailer.findByPk(due.retailerId, { transaction: t, lock: t.LOCK.UPDATE });
-    retailer.currentOutstanding = Math.max(0.00, parseFloat(retailer.currentOutstanding) - amount);
-    await retailer.save({ transaction: t });
-
     // Log transaction
     const transaction = await DuePaymentTransaction.create({
       duePaymentId: due.id,
@@ -1788,6 +2079,10 @@ app.post('/api/admin/dues/:id/record-payment', authenticateAdmin, async (req, re
       recordedByAdminId: req.user.id,
       note: note || 'Offline payment recorded'
     }, { transaction: t });
+
+    // Deduct from Retailer's Outstanding Balance using dynamic synchronizer
+    const updatedOutstanding = await syncRetailerOutstanding(due.retailerId, t);
+    const retailer = await Retailer.findByPk(due.retailerId, { transaction: t });
 
     await t.commit();
 

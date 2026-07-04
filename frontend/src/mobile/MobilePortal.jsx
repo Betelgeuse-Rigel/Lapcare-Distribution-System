@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE } from '../config';
+import { API_BASE, resolveImageUrl } from '../config';
 import { 
   Lock, Phone, Key, ShieldAlert, Award, 
   Plus, Minus, Check, ShoppingBag, Eye, EyeOff, Trash2,
   Calendar, FileText, AlertTriangle, ChevronRight,
   TrendingUp, CircleDollarSign, CheckSquare, PlusCircle,
-  MapPin, Edit, RefreshCw, LogOut
+  MapPin, Edit, RefreshCw, LogOut, Settings
 } from 'lucide-react';
 
 export default function MobilePortal({ onNotification: parentOnNotification }) {
   // Mobile Router State
   const [screen, setScreen] = useState('splash'); // splash, login, main
   const [localToasts, setLocalToasts] = useState([]);
+  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('API_BASE_MOBILE') || API_BASE);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [tempServerUrl, setTempServerUrl] = useState(serverUrl);
 
   // Local toast handler to render notifications directly within the app viewport
   const onNotification = (type, message) => {
@@ -37,12 +40,23 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   const [otpCode, setOtpCode] = useState('');
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  
+  // Register fields
+  const [authView, setAuthView] = useState('login'); // login, register
+  const [registerName, setRegisterName] = useState('');
+  const [registerMobile, setRegisterMobile] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
   // Retailer states
   const [retailerDashboard, setRetailerDashboard] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null); // For product details modal
+  const [qrCodePaymentOrder, setQrCodePaymentOrder] = useState(null); // For dynamic QR code payments
+  const [salesmanCheckoutOtpModal, setSalesmanCheckoutOtpModal] = useState(null); // For salesperson checkout OTP verification
   const [searchQuery, setSearchQuery] = useState('');
   const [addresses, setAddresses] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -66,6 +80,64 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   const [selectedRetailer, setSelectedRetailer] = useState(null); // Selected for details or order-on-behalf
   const [onBehalfRetailer, setOnBehalfRetailer] = useState(null); // Active context for ordering on behalf
 
+  // Navigation back-stack history
+  const [navHistory, setNavHistory] = useState([]);
+
+  const pushHistory = () => {
+    setNavHistory(prev => {
+      const last = prev[prev.length - 1];
+      if (last && 
+          last.screen === screen && 
+          last.activeTab === activeTab && 
+          last.selectedOrder?.id === selectedOrder?.id && 
+          last.selectedProduct?.id === selectedProduct?.id && 
+          last.selectedRetailer?.id === selectedRetailer?.id && 
+          last.onBehalfRetailer?.id === onBehalfRetailer?.id) {
+        return prev;
+      }
+      return [...prev, {
+        screen,
+        activeTab,
+        selectedOrder: selectedOrder ? { ...selectedOrder } : null,
+        selectedProduct: selectedProduct ? { ...selectedProduct } : null,
+        selectedRetailer: selectedRetailer ? { ...selectedRetailer } : null,
+        onBehalfRetailer: onBehalfRetailer ? { ...onBehalfRetailer } : null
+      }];
+    });
+  };
+
+  const goBack = () => {
+    if (navHistory.length === 0) {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+        window.Capacitor.Plugins.App.exitApp();
+      }
+      return;
+    }
+    const prevHistory = [...navHistory];
+    const prevState = prevHistory.pop();
+    setNavHistory(prevHistory);
+    if (prevState) {
+      setScreen(prevState.screen);
+      setActiveTab(prevState.activeTab);
+      setSelectedOrder(prevState.selectedOrder);
+      setSelectedProduct(prevState.selectedProduct);
+      setSelectedRetailer(prevState.selectedRetailer);
+      setOnBehalfRetailer(prevState.onBehalfRetailer);
+    }
+  };
+
+  // Capacitor hardware back button handler
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      const backListener = window.Capacitor.Plugins.App.addListener('backButton', () => {
+        goBack();
+      });
+      return () => {
+        backListener.then(handler => handler.remove());
+      };
+    }
+  }, [navHistory, screen, activeTab, selectedOrder, selectedProduct, selectedRetailer, onBehalfRetailer]);
+
   // Auto transition splash screen
   useEffect(() => {
     if (screen === 'splash') {
@@ -79,7 +151,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   // Fetch initial payment configurations
   const fetchPaymentConfigs = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/payment-config`, {
+      const res = await fetch(`${serverUrl}/api/admin/payment-config`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       // In mobile app, config endpoint is accessed using normal token. Let's make it standard
@@ -125,7 +197,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
 
   const fetchRetailerDashboard = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/retailer/dashboard`, {
+      const res = await fetch(`${serverUrl}/api/retailer/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -139,7 +211,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
 
   const fetchSalesmanDashboard = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/salesman/dashboard`, {
+      const res = await fetch(`${serverUrl}/api/salesman/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -153,7 +225,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
 
   const fetchAssignedRetailers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/salesman/retailers`, {
+      const res = await fetch(`${serverUrl}/api/salesman/retailers`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -168,7 +240,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   const fetchCategories = async () => {
     try {
       // Make it public or auth endpoint
-      const res = await fetch(`${API_BASE}/api/products/categories`, {
+      const res = await fetch(`${serverUrl}/api/products/categories`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -185,7 +257,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       const targetRetId = retId || (user.role === 'retailer' ? user.id : onBehalfRetailer?.id);
       if (!targetRetId) return;
 
-      const url = `${API_BASE}/api/products?retailerId=${targetRetId}${selectedCategory ? `&categoryId=${selectedCategory}` : ''}${searchQuery ? `&q=${searchQuery}` : ''}`;
+      const url = `${serverUrl}/api/products?retailerId=${targetRetId}${selectedCategory ? `&categoryId=${selectedCategory}` : ''}${searchQuery ? `&q=${searchQuery}` : ''}`;
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -209,7 +281,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       const targetRetId = retId || (user.role === 'retailer' ? user.id : onBehalfRetailer?.id);
       if (!targetRetId) return;
 
-      const res = await fetch(`${API_BASE}/api/retailer/addresses?retailerId=${targetRetId}`, {
+      const res = await fetch(`${serverUrl}/api/retailer/addresses?retailerId=${targetRetId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -226,7 +298,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const res = await fetch(`${serverUrl}/api/orders`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -240,7 +312,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
 
   const fetchDues = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/dues`, {
+      const res = await fetch(`${serverUrl}/api/dues`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -262,7 +334,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
+      const res = await fetch(`${serverUrl}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber })
@@ -270,7 +342,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       const data = await res.json();
       if (res.ok) {
         setOtpSent(true);
-        onNotification('success', 'OTP Sent successfully!');
+        setOtpCode(data.simulatedOtp || '');
+        onNotification('success', `OTP Sent! Simulated OTP is: ${data.simulatedOtp}`);
       } else {
         onNotification('error', data.error || 'Failed to send OTP');
       }
@@ -285,7 +358,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+      const res = await fetch(`${serverUrl}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber, otp: otpCode })
@@ -311,11 +384,15 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login-password`, {
+      const res = await fetch(`${serverUrl}/api/auth/login-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber, password })
       });
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned HTML instead of JSON. Make sure you set the App Settings URL to the backend port (5001), not the frontend port.');
+      }
       const data = await res.json();
       if (res.ok) {
         setToken(data.token);
@@ -324,7 +401,53 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
         setActiveTab(data.user.role === 'salesman' ? 'dashboard' : 'home');
         onNotification('success', `Welcome, ${data.user.name}!`);
       } else {
-        onNotification('error', data.error || 'Invalid credentials');
+        onNotification('error', 'Invalid username or password. Please try again.');
+      }
+    } catch (err) {
+      onNotification('error', `Server connection failed: ${err.message}`);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    if (e) e.preventDefault();
+    if (!registerName || !registerMobile || !registerEmail || !registerPassword || !registerConfirmPassword) {
+      onNotification('warning', 'All fields are required');
+      return;
+    }
+    if (registerPassword !== registerConfirmPassword) {
+      onNotification('error', 'Passwords do not match');
+      return;
+    }
+    try {
+      const res = await fetch(`${serverUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: registerName,
+          mobileNumber: registerMobile,
+          email: registerEmail,
+          password: registerPassword
+        })
+      });
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned HTML instead of JSON. Make sure you set the App Settings URL to the backend port (5001), not the frontend port.');
+      }
+      const data = await res.json();
+      if (res.ok) {
+        setToken(data.token);
+        setUser(data.user);
+        setScreen('main');
+        setActiveTab('home');
+        onNotification('success', `Registered & Logged in as ${data.user.name}`);
+        setRegisterName('');
+        setRegisterMobile('');
+        setRegisterEmail('');
+        setRegisterPassword('');
+        setRegisterConfirmPassword('');
+        setAuthView('login');
+      } else {
+        onNotification('error', data.error || 'Registration failed');
       }
     } catch (err) {
       onNotification('error', `Server connection failed: ${err.message}`);
@@ -408,10 +531,40 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
     };
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (e, providedOtp = null) => {
+    if (e) e.preventDefault();
     if (cart.length === 0) return;
     if (!checkoutAddress) {
       onNotification('warning', 'Please select a delivery address');
+      return;
+    }
+
+    // Intercept checkout for salesman if OTP has not been provided/generated yet
+    if (user.role === 'salesman' && !providedOtp) {
+      try {
+        const res = await fetch(`${serverUrl}/api/orders/generate-otp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            retailerId: onBehalfRetailer?.id
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSalesmanCheckoutOtpModal({
+            otpSim: data.otpSim,
+            enteredOtp: '',
+            error: ''
+          });
+        } else {
+          onNotification('error', data.error || 'Failed to generate order verification OTP');
+        }
+      } catch (err) {
+        onNotification('error', 'Connection failed while generating OTP');
+      }
       return;
     }
 
@@ -421,7 +574,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       : onBehalfRetailer?.availableCredit;
 
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const res = await fetch(`${serverUrl}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -431,6 +584,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
           retailerId: user.role === 'salesman' ? onBehalfRetailer?.id : user.id,
           paymentType: checkoutPayment,
           deliveryAddressId: parseInt(checkoutAddress),
+          orderOtp: providedOtp,
           items: cart.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
@@ -442,6 +596,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       const data = await res.json();
       if (res.ok) {
         setCart([]);
+        setSalesmanCheckoutOtpModal(null); // Close the OTP modal on success!
         fetchOrders();
         fetchDues();
         
@@ -458,24 +613,49 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
           }));
         }
 
+        if (checkoutPayment === 'qr_pay') {
+          setQrCodePaymentOrder({
+            orderNumber: data.orderNumber,
+            finalAmount: data.finalAmount || finalTotal
+          });
+        }
+
         if (data.status === 'pending_approval') {
           onNotification('warning', 'Order placed! Exceeded credit limit, awaiting Admin Approval.');
-          setActiveTab('orders');
+          if (checkoutPayment !== 'qr_pay') {
+            setActiveTab('orders');
+          }
         } else {
           onNotification('success', `Order ${data.orderNumber} placed successfully!`);
-          setActiveTab('orders');
+          if (checkoutPayment !== 'qr_pay') {
+            setActiveTab('orders');
+          }
         }
       } else {
-        onNotification('error', data.error || 'Checkout failed');
+        if (user.role === 'salesman') {
+          setSalesmanCheckoutOtpModal(prev => ({
+            ...prev,
+            error: data.error || 'Checkout failed'
+          }));
+        } else {
+          onNotification('error', data.error || 'Checkout failed');
+        }
       }
     } catch (err) {
-      onNotification('error', 'Connection failed');
+      if (user.role === 'salesman') {
+        setSalesmanCheckoutOtpModal(prev => ({
+          ...prev,
+          error: 'Connection failed'
+        }));
+      } else {
+        onNotification('error', 'Connection failed');
+      }
     }
   };
 
   const handleCancelOrder = async (orderId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/orders/${orderId}/cancel`, {
+      const res = await fetch(`${serverUrl}/api/orders/${orderId}/cancel`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -494,6 +674,27 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
     }
   };
 
+  const handleRequestCredit = async (term) => {
+    try {
+      const res = await fetch(`${serverUrl}/api/retailer/request-credit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ creditTermRequest: term })
+      });
+      if (res.ok) {
+        showLocalToast('success', `Request submitted for ${term === 'none' ? 'No Credit' : term.replace('_', ' ')}`);
+        fetchRetailerDashboard();
+      } else {
+        const err = await res.json();
+        showLocalToast('error', err.error || 'Failed to submit credit request');
+      }
+    } catch (err) {
+      showLocalToast('error', `Request failed: ${err.message}`);
+    }
+  };
 
   // ==========================================
   // ADDRESS CRUD ACTIONS
@@ -506,8 +707,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
     const payload = { ...addressForm, retailerId: targetRetId };
     const method = editingAddressId ? 'PUT' : 'POST';
     const url = editingAddressId 
-      ? `${API_BASE}/api/retailer/addresses/${editingAddressId}` 
-      : `${API_BASE}/api/retailer/addresses`;
+      ? `${serverUrl}/api/retailer/addresses/${editingAddressId}` 
+      : `${serverUrl}/api/retailer/addresses`;
 
     try {
       const res = await fetch(url, {
@@ -547,7 +748,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   const handleDeleteAddress = async (addrId) => {
     const targetRetId = user.role === 'retailer' ? user.id : onBehalfRetailer?.id;
     try {
-      const res = await fetch(`${API_BASE}/api/retailer/addresses/${addrId}?retailerId=${targetRetId}`, {
+      const res = await fetch(`${serverUrl}/api/retailer/addresses/${addrId}?retailerId=${targetRetId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -636,7 +837,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                   borderRadius: '50%',
                   background: '#fff',
                   border: '1.5px solid var(--border-color)',
-                  backgroundImage: `url(${cat.imageUrl})`,
+                  backgroundImage: `url(${resolveImageUrl(cat.imageUrl, serverUrl)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center'
                 }}></div>
@@ -651,11 +852,16 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
           <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '10px' }}>Featured Hardware</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', width: '100%' }}>
             {featuredProducts.map(prod => (
-              <div key={prod.id} className="card" style={{ padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, overflow: 'hidden' }}>
+              <div 
+                key={prod.id} 
+                className="card animate-hover" 
+                onClick={() => { pushHistory(); setSelectedProduct(prod); }}
+                style={{ padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, overflow: 'hidden', cursor: 'pointer' }}
+              >
                 <div style={{
                   height: '75px',
                   borderRadius: '6px',
-                  backgroundImage: `url(${prod.images?.[0]})`,
+                  backgroundImage: `url(${resolveImageUrl(prod.images?.[0], serverUrl)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   backgroundColor: '#f1f5f9',
@@ -683,11 +889,11 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--primary)' }}>₹{parseFloat(prod.price).toLocaleString()}</span>
                   <button 
-                    onClick={() => addToCart(prod)}
-                    className="btn btn-primary" 
-                    style={{ padding: '2px', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={(e) => { e.stopPropagation(); addToCart(prod); }}
+                    className="btn btn-primary animate-hover" 
+                    style={{ padding: '4px', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13,71,161,0.2)' }}
                   >
-                    <Plus size={12} />
+                    <Plus size={16} />
                   </button>
                 </div>
               </div>
@@ -738,12 +944,17 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
             <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-light)' }}>No products found</div>
           ) : (
             products.map(prod => (
-              <div key={prod.id} className="card" style={{ display: 'flex', gap: '10px', padding: '8px' }}>
+              <div 
+                key={prod.id} 
+                className="card animate-hover" 
+                onClick={() => { pushHistory(); setSelectedProduct(prod); }}
+                style={{ display: 'flex', gap: '10px', padding: '8px', cursor: 'pointer' }}
+              >
                 <div style={{
                   width: '70px',
                   height: '70px',
                   borderRadius: '6px',
-                  backgroundImage: `url(${prod.images?.[0]})`,
+                  backgroundImage: `url(${resolveImageUrl(prod.images?.[0], serverUrl)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   backgroundColor: '#f1f5f9',
@@ -772,12 +983,12 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                         {prod.stockQuantity === 0 ? 'Out of Stock' : (prod.stockQuantity <= prod.lowStockThreshold ? 'Low Stock' : 'In Stock')}
                       </span>
                       <button
-                        onClick={() => addToCart(prod)}
+                        onClick={(e) => { e.stopPropagation(); addToCart(prod); }}
                         disabled={prod.stockQuantity === 0}
-                        className="btn btn-primary"
-                        style={{ padding: '3px', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        className="btn btn-primary animate-hover"
+                        style={{ padding: '4px', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13,71,161,0.2)' }}
                       >
-                        <Plus size={12} />
+                        <Plus size={16} />
                       </button>
                     </div>
                   </div>
@@ -871,8 +1082,27 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                 onChange={(e) => setCheckoutPayment(e.target.value)}
               >
                 <option value="cod">Cash on Delivery (COD)</option>
-                <option value="due_7">Due 7 Days</option>
-                <option value="due_15">Due 15 Days</option>
+                <option value="qr_pay">UPI QR Code Payment</option>
+                
+                {(() => {
+                  const approved = user.role === 'retailer' 
+                    ? retailerDashboard?.retailer?.creditTermApproved 
+                    : onBehalfRetailer?.creditTermApproved;
+                  
+                  return (
+                    <>
+                      {['due_7', 'due_15', 'due_30'].includes(approved) && (
+                        <option value="due_7">Due 7 Days</option>
+                      )}
+                      {['due_15', 'due_30'].includes(approved) && (
+                        <option value="due_15">Due 15 Days</option>
+                      )}
+                      {approved === 'due_30' && (
+                        <option value="due_30">Due 30 Days</option>
+                      )}
+                    </>
+                  );
+                })()}
               </select>
             </div>
 
@@ -967,9 +1197,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                   </button>
                 )}
 
-                {/* Expand view details */}
                 <button
-                  onClick={() => setSelectedOrder(isSelected ? null : order)}
+                  onClick={() => { pushHistory(); setSelectedOrder(isSelected ? null : order); }}
                   style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.65rem', alignSelf: 'flex-start', padding: '2px 0' }}
                 >
                   {isSelected ? 'Hide Details' : 'View Details'}
@@ -1062,6 +1291,55 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
           <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>{user.name}</h3>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📧 {user.email}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📱 {user.mobileNumber}</div>
+        </div>
+
+        {/* Credit Period Request Card */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#fff' }}>
+          <h4 style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-light)', textTransform: 'uppercase', margin: 0 }}>Credit Term Status</h4>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+            <span>Approved Credit Term:</span>
+            <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+              {retailerDashboard?.retailer?.creditTermApproved === 'none' || !retailerDashboard?.retailer?.creditTermApproved
+                ? 'No Credit (COD / UPI)' 
+                : retailerDashboard.retailer.creditTermApproved.replace('_', ' ').toUpperCase()}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+            <span>Credit Limit:</span>
+            <span style={{ fontWeight: 'bold' }}>₹{retailerDashboard?.retailer?.creditLimit?.toLocaleString() || '0'}</span>
+          </div>
+
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '4px' }}>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '6px' }}>Request Credit Period Approval:</span>
+            
+            {retailerDashboard?.retailer?.creditRequestStatus === 'pending' ? (
+              <div style={{ padding: '8px', background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center' }}>
+                Pending Approval: {retailerDashboard.retailer.creditTermRequest.replace('_', ' ').toUpperCase()}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['due_7', 'due_15', 'due_30'].map(term => (
+                  <button
+                    key={term}
+                    onClick={() => handleRequestCredit(term)}
+                    disabled={retailerDashboard?.retailer?.creditTermApproved === term}
+                    className="btn btn-outline"
+                    style={{ flex: 1, padding: '4px 2px', fontSize: '0.65rem' }}
+                  >
+                    {term.replace('_', ' ').toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {retailerDashboard?.retailer?.creditRequestStatus === 'rejected' && (
+              <div style={{ marginTop: '6px', fontSize: '0.65rem', color: 'var(--danger)', fontWeight: 'bold' }}>
+                ⚠️ Previous credit request was rejected. You can submit a new request above.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Addresses book CRUD */}
@@ -1218,6 +1496,271 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       </div>
     );
   };
+
+  const renderProductDetailsModal = () => {
+    if (!selectedProduct) return null;
+    
+    // Find if product is already in cart
+    const cartItem = cart.find(item => item.productId === selectedProduct.id);
+    const quantity = cartItem ? cartItem.quantity : 0;
+    
+    return (
+      <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+        <div className="card animate-slide-in" style={{ width: '100%', maxWidth: '360px', maxHeight: '90vh', overflowY: 'auto', padding: '20px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <span className="badge badge-primary" style={{ fontSize: '0.65rem', marginBottom: '4px', display: 'inline-block' }}>SKU: {selectedProduct.sku}</span>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: '4px 0', paddingRight: '20px' }}>{selectedProduct.name}</h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', margin: 0 }}>Brand: <strong>{selectedProduct.brand}</strong> | Category: <strong>{selectedProduct.ProductCategory?.name || 'Hardware'}</strong></p>
+            </div>
+            <button 
+              onClick={() => setSelectedProduct(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* Product Image */}
+          <div style={{
+            width: '100%', height: '180px', borderRadius: '10px', overflow: 'hidden',
+            background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid var(--border-color)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+          }}>
+            <img src={resolveImageUrl(selectedProduct.images?.[0] || selectedProduct.imageUrl, serverUrl)} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }} />
+          </div>
+          
+          {/* Pricing & Stock Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ background: '#f0f9ff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+              <div style={{ fontSize: '0.6rem', color: '#0369a1', fontWeight: 600 }}>Wholesale Price</div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0284c7', marginTop: '2px' }}>₹{parseFloat(selectedProduct.price).toLocaleString()}</div>
+            </div>
+            <div style={{ 
+              background: selectedProduct.stockQuantity === 0 ? '#fef2f2' : (selectedProduct.stockQuantity <= selectedProduct.lowStockThreshold ? '#fffbeb' : '#f0fdf4'), 
+              padding: '8px 10px', 
+              borderRadius: '8px', 
+              border: selectedProduct.stockQuantity === 0 ? '1px solid #fee2e2' : (selectedProduct.stockQuantity <= selectedProduct.lowStockThreshold ? '1px solid #fef3c7' : '1px solid #bbf7d0')
+            }}>
+              <div style={{ 
+                fontSize: '0.6rem', 
+                color: selectedProduct.stockQuantity === 0 ? '#b91c1c' : (selectedProduct.stockQuantity <= selectedProduct.lowStockThreshold ? '#b45309' : '#15803d'), 
+                fontWeight: 600 
+              }}>Stock Status</div>
+              <div style={{ 
+                fontSize: '0.8rem', 
+                fontWeight: 700, 
+                color: selectedProduct.stockQuantity === 0 ? '#dc2626' : (selectedProduct.stockQuantity <= selectedProduct.lowStockThreshold ? '#d97706' : '#16a34a'), 
+                marginTop: '4px' 
+              }}>
+                {selectedProduct.stockQuantity === 0 ? 'Out of Stock' : (selectedProduct.stockQuantity <= selectedProduct.lowStockThreshold ? 'Low Stock' : `${selectedProduct.stockQuantity} units`)}
+              </div>
+            </div>
+          </div>
+          
+          {/* Description Section */}
+          <div>
+            <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Product Description</h4>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4, background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', margin: 0 }}>
+              {selectedProduct.description || 'Official genuine hardware component backed by comprehensive brand warranty and distributor support.'}
+            </p>
+          </div>
+
+          {/* Verified Reviews (same as admin) */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0 }}>Verified Partner Reviews</h4>
+              <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#d97706', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                ⭐ 4.9 Rating
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+                  <strong>Tech Solutions Retailers Ltd</strong>
+                  <span style={{ color: '#d97706' }}>⭐⭐⭐⭐⭐</span>
+                </div>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', margin: '2px 0 0' }}>"Fast moving stock item. High build quality and great retailer margins!"</p>
+              </div>
+              <div style={{ background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+                  <strong>Apex Computer Systems</strong>
+                  <span style={{ color: '#d97706' }}>⭐⭐⭐⭐⭐</span>
+                </div>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', margin: '2px 0 0' }}>"Authentic brand hardware. Zero return rate across 50+ units sold."</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Actions */}
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '4px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {quantity > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'center' }}>
+                <button 
+                  onClick={() => updateCartQty(selectedProduct.id, -1)}
+                  className="btn btn-outline"
+                  style={{ width: '32px', height: '32px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+                >
+                  <Minus size={14} />
+                </button>
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{quantity} in Cart</span>
+                <button 
+                  onClick={() => updateCartQty(selectedProduct.id, 1)}
+                  className="btn btn-outline"
+                  style={{ width: '32px', height: '32px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => addToCart(selectedProduct)}
+                disabled={selectedProduct.stockQuantity === 0}
+                className="btn btn-primary"
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px 0', borderRadius: '6px' }}
+              >
+                <Plus size={16} />
+                <span>Add to Cart</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderQrPaymentModal = () => {
+    if (!qrCodePaymentOrder) return null;
+    
+    const upiId = '9775375365@okbizaxis';
+    const merchantName = 'BISWAS ENTERPRISE';
+    const amount = parseFloat(qrCodePaymentOrder.finalAmount).toFixed(2);
+    const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${amount}&cu=INR`;
+    const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+
+    return (
+      <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+        <div className="card" style={{ width: '90%', maxWidth: '340px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', background: '#f8f9fa' }}>
+          
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+            <div style={{ background: '#1976d2', color: 'white', padding: '6px', borderRadius: '4px', fontSize: '0.9rem', fontWeight: 'bold' }}>UPI</div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold', margin: 0 }}>Google Pay Checkout</h3>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Biswas Enterprise Distribution</span>
+            </div>
+          </div>
+          
+          {/* Bill Details */}
+          <div style={{ width: '100%', background: 'white', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Order Number:</span>
+              <span style={{ fontWeight: 'bold' }}>{qrCodePaymentOrder.orderNumber}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Merchant:</span>
+              <span style={{ fontWeight: 'bold' }}>{merchantName}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', borderTop: '1px dotted #ccc', paddingTop: '4px', marginTop: '4px' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>Amount Payable:</span>
+              <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.95rem' }}>₹{parseFloat(amount).toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* QR Code Container */}
+          <div style={{ background: 'white', padding: '12px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <img 
+              src={qrImgUrl} 
+              alt="Scan to Pay" 
+              style={{ width: '160px', height: '160px', border: '1px solid #f1f5f9' }} 
+            />
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: '600' }}>Scan QR using Google Pay, PhonePe or Paytm</span>
+          </div>
+
+          {/* UPI ID Info */}
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+            <div>UPI ID: <strong style={{ color: 'var(--text-main)' }}>{upiId}</strong></div>
+            <div style={{ marginTop: '2px', fontSize: '0.6rem', color: 'var(--text-light)' }}>Please verify Merchant Name: <strong>BISWAS ENTERPRISE</strong> before confirming</div>
+          </div>
+
+          {/* Done/Close Actions */}
+          <div style={{ width: '100%', display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <button 
+              onClick={() => {
+                setQrCodePaymentOrder(null);
+                setActiveTab('orders');
+              }}
+              className="btn btn-primary animate-hover"
+              style={{ flex: 1, padding: '10px 0', fontSize: '0.75rem', borderRadius: '6px' }}
+            >
+              Confirm Payment Completed
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSalesmanCheckoutOtpModal = () => {
+    if (!salesmanCheckoutOtpModal) return null;
+    
+    return (
+      <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+        <div className="card" style={{ width: '90%', maxWidth: '340px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 'bold', margin: 0 }}>Verify Order Placement</h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+            An order verification OTP has been generated for <strong>{onBehalfRetailer?.name}</strong>.
+          </p>
+
+          <div style={{ background: '#e0f2f1', padding: '8px 12px', borderRadius: '4px', borderLeft: '4px solid #00bfa5', fontSize: '0.75rem', color: '#00796b' }}>
+            <strong>OTP Code (Simulated):</strong> {salesmanCheckoutOtpModal.otpSim}
+          </div>
+
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Enter 6-Digit OTP</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="e.g. 123456" 
+              maxLength="6"
+              value={salesmanCheckoutOtpModal.enteredOtp}
+              onChange={(e) => setSalesmanCheckoutOtpModal(prev => ({ ...prev, enteredOtp: e.target.value, error: '' }))}
+              style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '1.1rem', fontWeight: 'bold' }}
+            />
+          </div>
+
+          {salesmanCheckoutOtpModal.error && (
+            <div style={{ color: 'var(--danger)', fontSize: '0.7rem', fontWeight: '600' }}>
+              ⚠️ {salesmanCheckoutOtpModal.error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <button 
+              onClick={() => setSalesmanCheckoutOtpModal(null)} 
+              className="btn btn-outline" 
+              style={{ flex: 1, padding: '10px 0', fontSize: '0.75rem' }}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={() => handleCheckout(null, salesmanCheckoutOtpModal.enteredOtp)} 
+              disabled={salesmanCheckoutOtpModal.enteredOtp.length !== 6}
+              className="btn btn-primary" 
+              style={{ flex: 1, padding: '10px 0', fontSize: '0.75rem' }}
+            >
+              Verify & Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
+
 
 
   // ==========================================
@@ -1385,7 +1928,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
               style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               onClick={async () => {
                 try {
-                  const res = await fetch(`${API_BASE}/api/salesman/retailers/${r.id}`, {
+                  const res = await fetch(`${serverUrl}/api/salesman/retailers/${r.id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                   });
                   if (res.ok) {
@@ -1414,9 +1957,228 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
 
 
   // ==========================================
+  // CONNECTION SETTINGS MODAL
+  // ==========================================
+  const renderSettingsModal = () => {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        padding: '16px'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '320px',
+          padding: '20px',
+          boxShadow: 'var(--shadow-lg)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <Settings size={18} style={{ color: 'var(--primary)' }} /> Connection Settings
+            </h3>
+            <p style={{ fontSize: '0.65rem', color: 'var(--text-light)', marginTop: '4px', margin: '4px 0 0' }}>
+              Set the backend server URL (e.g. for development or custom servers).
+            </p>
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label style={{ fontSize: '0.7rem', display: 'block', marginBottom: '4px' }}>Backend API Base URL</label>
+            <input
+              type="text"
+              className="form-control"
+              style={{ fontSize: '0.75rem', padding: '8px', width: '100%' }}
+              value={tempServerUrl}
+              onChange={(e) => setTempServerUrl(e.target.value)}
+              placeholder="e.g. http://10.0.2.2:5001"
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <button
+              onClick={() => setShowSettingsModal(false)}
+              className="btn btn-outline"
+              style={{ fontSize: '0.75rem', padding: '8px' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('API_BASE_MOBILE', tempServerUrl);
+                setServerUrl(tempServerUrl);
+                setShowSettingsModal(false);
+                onNotification('success', 'Server URL updated successfully');
+              }}
+              className="btn btn-primary"
+              style={{ fontSize: '0.75rem', padding: '8px' }}
+            >
+              Save URL
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ==========================================
   // LOGIN SCREEN
   // ==========================================
   const renderLogin = () => {
+    if (authView === 'register') {
+      return (
+        <div style={{
+          padding: '24px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          height: '100%',
+          background: '#fff',
+          overflowY: 'auto',
+          position: 'relative'
+        }}>
+          {/* Settings button on register screen */}
+          <button
+            onClick={() => {
+              setTempServerUrl(serverUrl);
+              setShowSettingsModal(true);
+            }}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(0, 0, 0, 0.05)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--text-light)',
+              zIndex: 1000
+            }}
+            title="App Settings"
+          >
+            <Settings size={18} />
+          </button>
+
+          {/* Brand header */}
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              backgroundColor: 'var(--primary)',
+              color: 'white',
+              fontSize: '2rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 12px',
+              boxShadow: '0 8px 16px rgba(13, 71, 161, 0.2)'
+            }}>
+              B
+            </div>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>CREATE ACCOUNT</h2>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>REGISTER AS A NEW RETAILER (T3 GROUP)</p>
+          </div>
+
+          <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="form-group">
+              <label>Retailer Store Name</label>
+              <input
+                type="text"
+                placeholder="Enter store name"
+                className="form-control"
+                value={registerName}
+                onChange={(e) => setRegisterName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Mobile Number</label>
+              <input
+                type="tel"
+                placeholder="Enter 10-digit number"
+                className="form-control"
+                value={registerMobile}
+                onChange={(e) => setRegisterMobile(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Email Address</label>
+              <input
+                type="email"
+                placeholder="Enter email address"
+                className="form-control"
+                value={registerEmail}
+                onChange={(e) => setRegisterEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                placeholder="Create password"
+                className="form-control"
+                value={registerPassword}
+                onChange={(e) => setRegisterPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                placeholder="Verify password"
+                className="form-control"
+                value={registerConfirmPassword}
+                onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button 
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', fontWeight: '600', marginTop: '8px' }}
+            >
+              Submit Registration
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', marginTop: '16px' }}>
+            <button 
+              onClick={() => setAuthView('login')}
+              style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+              Already have an account? Login here
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={{
         padding: '24px 16px',
@@ -1424,8 +2186,35 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
         flexDirection: 'column',
         justifyContent: 'center',
         height: '100%',
-        background: '#fff'
+        background: '#fff',
+        position: 'relative'
       }}>
+        {/* Settings button on login screen */}
+        <button
+          onClick={() => {
+            setTempServerUrl(serverUrl);
+            setShowSettingsModal(true);
+          }}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            background: 'rgba(0, 0, 0, 0.05)',
+            border: 'none',
+            borderRadius: '50%',
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-light)',
+            zIndex: 1000
+          }}
+          title="App Settings"
+        >
+          <Settings size={18} />
+        </button>
         {/* Brand header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{
@@ -1582,66 +2371,265 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
           )}
         </div>
 
-        {/* Demo Helper box */}
-        <div style={{
-          marginTop: '20px',
-          background: '#f8fafc',
-          border: '1px dashed #cbd5e1',
-          padding: '10px',
-          borderRadius: '6px',
-          fontSize: '0.65rem',
-          color: 'var(--text-muted)',
-          lineHeight: 1.4
-        }}>
-          <strong>Demo logins (Password: password123):</strong>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: '4px' }}>
-            <span>Retailer A (T1):</span> <strong>9000000001</strong>
-            <span>Retailer B (T2):</span> <strong>9000000002</strong>
-            <span>Salesman 1:</span> <strong>9000000010</strong>
-          </div>
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <button 
+            onClick={() => setAuthView('register')}
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer', fontSize: '0.8rem' }}
+          >
+            Don't have an account? Register as Retailer
+          </button>
         </div>
       </div>
     );
   };
 
   // Main wrapper render logic
-  if (screen === 'splash') {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100%',
-        background: 'linear-gradient(135deg, #0d47a1 0%, #0a2540 100%)',
-        color: 'white',
-        textAlign: 'center'
-      }}>
-        <div className="animate-pulse-slow" style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '24px',
-          backgroundColor: 'white',
-          color: 'var(--primary)',
-          fontSize: '2.5rem',
-          fontWeight: 900,
+  const renderContent = () => {
+    if (screen === 'splash') {
+      return (
+        <div style={{
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: 'column',
           justifyContent: 'center',
-          marginBottom: '16px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
+          alignItems: 'center',
+          height: '100%',
+          background: 'linear-gradient(135deg, #0d47a1 0%, #0a2540 100%)',
+          color: 'white',
+          textAlign: 'center',
+          position: 'relative'
         }}>
-          B
+          {/* Settings button on splash screen */}
+          <button
+            onClick={() => {
+              setTempServerUrl(serverUrl);
+              setShowSettingsModal(true);
+            }}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'white',
+              zIndex: 1000
+            }}
+            title="App Settings"
+          >
+            <Settings size={18} />
+          </button>
+
+          <div className="animate-pulse-slow" style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '24px',
+            backgroundColor: 'white',
+            color: 'var(--primary)',
+            fontSize: '2.5rem',
+            fontWeight: 900,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
+          }}>
+            B
+          </div>
+          <h2 style={{ color: 'white', fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.5px' }}>BISWAS DISTRIBUTION</h2>
+          <p style={{ color: '#e3f2fd', fontSize: '0.75rem', marginTop: '4px', opacity: 0.8 }}>Hardware B2B Supply Chain</p>
         </div>
-        <h2 style={{ color: 'white', fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.5px' }}>BISWAS DISTRIBUTION</h2>
-        <p style={{ color: '#e3f2fd', fontSize: '0.75rem', marginTop: '4px', opacity: 0.8 }}>Hardware B2B Supply Chain</p>
+      );
+    }
+
+    if (screen === 'login') {
+      return renderLogin();
+    }
+
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        
+        {/* Device wrapper component */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          
+          {/* Navigation title bar inside device frame */}
+          <div style={{
+            background: 'var(--primary)',
+            color: 'white',
+            padding: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {navHistory.length > 0 ? (
+                <button 
+                  onClick={goBack}
+                  style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '1.2rem', paddingRight: '4px' }}
+                >
+                  ←
+                </button>
+              ) : onBehalfRetailer ? (
+                <button 
+                  onClick={() => {
+                    setOnBehalfRetailer(null);
+                    setCart([]);
+                    setActiveTab('retailers');
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  ←
+                </button>
+              ) : null}
+              <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'white' }}>{getHeaderTitle()}</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Show cart badge for active retailer/on behalf retailer */}
+              {((user?.role === 'retailer') || onBehalfRetailer) && (
+                <button 
+                  onClick={() => setActiveTab('cart')}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: 'none',
+                    color: 'white',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.25rem',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)',
+                    transition: 'background 0.2s'
+                  }}
+                >
+                  🛒
+                  {cart.length > 0 && (
+                    <span style={{
+                      position: 'absolute', top: '-2px', right: '-2px',
+                      background: 'var(--danger)', color: 'white',
+                      fontSize: '0.6rem', borderRadius: '50%', padding: '2px 5px',
+                      fontWeight: 'bold',
+                      border: '2px solid var(--primary)',
+                      minWidth: '16px',
+                      height: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {cart.length}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              <button 
+                onClick={handleLogout}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'white', 
+                  cursor: 'pointer', 
+                  opacity: 0.9,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600'
+                }}
+                title="Logout"
+              >
+                <LogOut size={16} /> Logout
+              </button>
+            </div>
+          </div>
+
+          {/* Navigation top bar inside frame */}
+          <div style={{
+            background: 'white',
+            borderBottom: '1px solid var(--border-color)',
+            display: 'flex',
+            justifyContent: 'space-around',
+            padding: '6px 0',
+            flexShrink: 0
+          }}>
+            {user.role === 'retailer' ? (
+              <>
+                <button onClick={() => { pushHistory(); setActiveTab('home'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'home' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'home' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  🏠 <span>Home</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('products'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'products' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'products' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  📦 <span>Catalog</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('orders'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  📋 <span>Orders</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('dues'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  💰 <span>Dues</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('profile'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  👤 <span>Profile</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => { pushHistory(); setActiveTab('dashboard'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dashboard' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  📈 <span>Dashboard</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('retailers'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'retailers' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'retailers' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  👥 <span>Retailers</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('orders'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  📋 <span>Orders</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('dues'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  💰 <span>Dues</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('profile'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  👤 <span>Profile</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Content body based on active tabs */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {user.role === 'retailer' ? (
+              <>
+                {activeTab === 'home' && renderRetailerHome()}
+                {activeTab === 'products' && renderRetailerProducts()}
+                {activeTab === 'cart' && renderRetailerCart()}
+                {activeTab === 'orders' && renderRetailerOrders()}
+                {activeTab === 'dues' && renderRetailerDues()}
+                {activeTab === 'profile' && renderRetailerProfile()}
+              </>
+            ) : (
+              <>
+                {activeTab === 'dashboard' && renderSalesmanDashboard()}
+                {activeTab === 'retailers' && renderSalesmanRetailers()}
+                {activeTab === 'products' && renderRetailerProducts()}
+                {activeTab === 'cart' && renderRetailerCart()}
+                {activeTab === 'orders' && renderRetailerOrders()}
+                {activeTab === 'dues' && renderRetailerDues()}
+                {activeTab === 'profile' && renderRetailerProfile()}
+              </>
+            )}
+          </div>
+
+        </div>
+
       </div>
     );
-  }
-
-  if (screen === 'login') {
-    return renderLogin();
-  }
+  };
 
   // Determine active title of active tab
   const getHeaderTitle = () => {
@@ -1660,155 +2648,24 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      
-      {/* Device wrapper component */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        
-        {/* Navigation title bar inside device frame */}
-        <div style={{
-          background: 'var(--primary)',
-          color: 'white',
-          padding: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {onBehalfRetailer && (
-              <button 
-                onClick={() => {
-                  setOnBehalfRetailer(null);
-                  setCart([]);
-                  setActiveTab('retailers');
-                }}
-                style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
-                ←
-              </button>
-            )}
-            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'white' }}>{getHeaderTitle()}</span>
-          </div>
+    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+      {renderContent()}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Show cart badge for active retailer/on behalf retailer */}
-            {((user?.role === 'retailer') || onBehalfRetailer) && (
-              <button 
-                onClick={() => setActiveTab('cart')}
-                style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', position: 'relative' }}
-              >
-                🛒
-                {cart.length > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-5px', right: '-8px',
-                    background: 'var(--danger)', color: 'white',
-                    fontSize: '0.55rem', borderRadius: '50%', padding: '1px 4px',
-                    fontWeight: 'bold'
-                  }}>
-                    {cart.length}
-                  </span>
-                )}
-              </button>
-            )}
+      {/* Product Details Modal */}
+      {selectedProduct && renderProductDetailsModal()}
 
-            <button 
-              onClick={handleLogout}
-              style={{ 
-                background: 'none', 
-                border: 'none', 
-                color: 'white', 
-                cursor: 'pointer', 
-                opacity: 0.9,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.75rem',
-                fontWeight: '600'
-              }}
-              title="Logout"
-            >
-              <LogOut size={16} /> Logout
-            </button>
-          </div>
-        </div>
+      {/* QR Payment Modal */}
+      {qrCodePaymentOrder && renderQrPaymentModal()}
 
-        {/* Content body based on active tabs */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {user.role === 'retailer' ? (
-            <>
-              {activeTab === 'home' && renderRetailerHome()}
-              {activeTab === 'products' && renderRetailerProducts()}
-              {activeTab === 'cart' && renderRetailerCart()}
-              {activeTab === 'orders' && renderRetailerOrders()}
-              {activeTab === 'dues' && renderRetailerDues()}
-              {activeTab === 'profile' && renderRetailerProfile()}
-            </>
-          ) : (
-            <>
-              {activeTab === 'dashboard' && renderSalesmanDashboard()}
-              {activeTab === 'retailers' && renderSalesmanRetailers()}
-              {activeTab === 'products' && renderRetailerProducts()}
-              {activeTab === 'cart' && renderRetailerCart()}
-              {activeTab === 'orders' && renderRetailerOrders()}
-              {activeTab === 'dues' && renderRetailerDues()}
-              {activeTab === 'profile' && renderRetailerProfile()}
-            </>
-          )}
-        </div>
+      {/* Salesman Checkout OTP Modal */}
+      {salesmanCheckoutOtpModal && renderSalesmanCheckoutOtpModal()}
 
-        {/* Navigation bottom bar inside frame */}
-        <div style={{
-          background: 'white',
-          borderTop: '1px solid var(--border-color)',
-          display: 'flex',
-          justifyContent: 'space-around',
-          padding: '6px 0'
-        }}>
-          {user.role === 'retailer' ? (
-            <>
-              <button onClick={() => setActiveTab('home')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'home' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'home' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                🏠 <span>Home</span>
-              </button>
-              <button onClick={() => setActiveTab('products')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'products' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'products' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                📦 <span>Catalog</span>
-              </button>
-              <button onClick={() => setActiveTab('orders')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                📋 <span>Orders</span>
-              </button>
-              <button onClick={() => setActiveTab('dues')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                💰 <span>Dues</span>
-              </button>
-              <button onClick={() => setActiveTab('profile')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                👤 <span>Profile</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => setActiveTab('dashboard')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dashboard' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                📈 <span>Dashboard</span>
-              </button>
-              <button onClick={() => setActiveTab('retailers')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'retailers' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'retailers' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                👥 <span>Retailers</span>
-              </button>
-              <button onClick={() => setActiveTab('orders')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                📋 <span>Orders</span>
-              </button>
-              <button onClick={() => setActiveTab('dues')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                💰 <span>Dues</span>
-              </button>
-              <button onClick={() => setActiveTab('profile')} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                👤 <span>Profile</span>
-              </button>
-            </>
-          )}
-        </div>
-
-      </div>
+      {/* Settings Modal */}
+      {showSettingsModal && renderSettingsModal()}
 
       {/* Local Mobile Toasts Container */}
       {localToasts.length > 0 && (
-        <div className="mobile-toast-container">
+        <div className="mobile-toast-container" style={{ zIndex: 9999 }}>
           {localToasts.map(toast => (
             <div key={toast.id} className={`mobile-toast mobile-toast-${toast.type}`}>
               <div className="mobile-toast-body">
