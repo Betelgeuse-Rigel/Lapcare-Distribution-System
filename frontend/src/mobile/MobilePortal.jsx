@@ -891,9 +891,9 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                   <button 
                     onClick={(e) => { e.stopPropagation(); addToCart(prod); }}
                     className="btn btn-primary animate-hover" 
-                    style={{ padding: '4px', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13,71,161,0.2)' }}
+                    style={{ padding: '4px', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13,71,161,0.2)' }}
                   >
-                    <Plus size={16} />
+                    <Plus size={18} />
                   </button>
                 </div>
               </div>
@@ -986,9 +986,9 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                         onClick={(e) => { e.stopPropagation(); addToCart(prod); }}
                         disabled={prod.stockQuantity === 0}
                         className="btn btn-primary animate-hover"
-                        style={{ padding: '4px', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13,71,161,0.2)' }}
+                        style={{ padding: '4px', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13,71,161,0.2)' }}
                       >
-                        <Plus size={16} />
+                        <Plus size={18} />
                       </button>
                     </div>
                   </div>
@@ -2501,13 +2501,13 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                     color: 'white',
                     cursor: 'pointer',
                     position: 'relative',
-                    width: '38px',
-                    height: '38px',
+                    width: '46px',
+                    height: '46px',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.25rem',
+                    fontSize: '1.45rem',
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)',
                     transition: 'background 0.2s'
                   }}

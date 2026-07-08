@@ -46,6 +46,7 @@ const {
 } = require('./database');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = 5000;
 const JWT_SECRET = 'b2b_distributor_super_secret_key';
 
@@ -771,7 +772,7 @@ app.get('/api/products', authenticateToken, enforceRole(['retailer', 'salesman',
       ];
     }
 
-    const products = await Product.findAll({ where, order: [['id', 'ASC']] });
+    const products = await Product.findAll({ where, order: [['name', 'ASC']] });
     
     // Map list applying tier pricing context
     const pricedProducts = products.map(p => {

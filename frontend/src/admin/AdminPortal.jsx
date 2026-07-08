@@ -53,6 +53,7 @@ export default function AdminPortal({ onNotification }) {
   const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   const [creditApprovalNote, setCreditApprovalNote] = useState('');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
 
   // Config parameters
   const [codCharge, setCodCharge] = useState(50);
@@ -326,6 +327,28 @@ export default function AdminPortal({ onNotification }) {
     }
   };
 
+  const handleDeleteRetailer = async (retailerId) => {
+    if (!window.confirm("Are you sure you want to delete this retailer account?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/retailers/${retailerId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        onNotification('success', 'Retailer account deleted successfully');
+        fetchRetailers();
+        fetchDashboard();
+      } else {
+        const err = await res.json();
+        onNotification('error', err.error || 'Failed to delete retailer');
+      }
+    } catch (err) {
+      onNotification('error', `Connection error: ${err.message}`);
+    }
+  };
+
   // ==========================================
   // SALESMAN CRUD ACTIONS
   // ==========================================
@@ -355,6 +378,28 @@ export default function AdminPortal({ onNotification }) {
       }
     } catch (err) {
       onNotification('error', 'Failed to save salesman');
+    }
+  };
+
+  const handleDeleteSalesman = async (salesmanId) => {
+    if (!window.confirm("Are you sure you want to delete this salesperson account?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/salesmen/${salesmanId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        onNotification('success', 'Salesperson account deleted successfully');
+        fetchSalesmen();
+        fetchDashboard();
+      } else {
+        const err = await res.json();
+        onNotification('error', err.error || 'Failed to delete salesperson');
+      }
+    } catch (err) {
+      onNotification('error', `Connection error: ${err.message}`);
     }
   };
 
@@ -1109,27 +1154,36 @@ export default function AdminPortal({ onNotification }) {
                         </span>
                       </td>
                       <td>
-                        <button 
-                          onClick={() => {
-                            setEditingRetailerId(r.id);
-                            setRetailerForm({
-                              name: r.name,
-                              mobileNumber: r.mobileNumber,
-                              email: r.email,
-                              category: r.category,
-                              creditLimit: r.creditLimit,
-                              assignedSalesmanId: r.assignedSalesmanId || '',
-                              isActive: r.isActive,
-                              creditTermApproved: r.creditTermApproved || 'none',
-                              creditRequestStatus: r.creditRequestStatus || 'none'
-                            });
-                            setRetailerModalOpen(true);
-                          }}
-                          className="btn btn-outline"
-                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
-                        >
-                          Edit
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            onClick={() => {
+                              setEditingRetailerId(r.id);
+                              setRetailerForm({
+                                name: r.name,
+                                mobileNumber: r.mobileNumber,
+                                email: r.email,
+                                category: r.category,
+                                creditLimit: r.creditLimit,
+                                assignedSalesmanId: r.assignedSalesmanId || '',
+                                isActive: r.isActive,
+                                creditTermApproved: r.creditTermApproved || 'none',
+                                creditRequestStatus: r.creditRequestStatus || 'none'
+                              });
+                              setRetailerModalOpen(true);
+                            }}
+                            className="btn btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteRetailer(r.id)}
+                            className="btn btn-danger"
+                            style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1318,6 +1372,13 @@ export default function AdminPortal({ onNotification }) {
                         >
                           Configure Targets
                         </button>
+                        <button 
+                          onClick={() => handleDeleteSalesman(sm.id)}
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1371,6 +1432,17 @@ export default function AdminPortal({ onNotification }) {
                         value={salesmanForm.password}
                         onChange={(e) => setSalesmanForm({ ...salesmanForm, password: e.target.value })}
                       />
+                    </div>
+                  )}
+
+                  {editingSalesmanId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input 
+                        type="checkbox" id="smActive"
+                        checked={salesmanForm.isActive}
+                        onChange={(e) => setSalesmanForm({ ...salesmanForm, isActive: e.target.checked })}
+                      />
+                      <label htmlFor="smActive" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Account Active</label>
                     </div>
                   )}
 
@@ -1610,6 +1682,18 @@ export default function AdminPortal({ onNotification }) {
               </div>
             </div>
 
+            {/* Search Bar */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input 
+                type="text"
+                placeholder="Search products by name, SKU, or brand..."
+                className="form-control"
+                style={{ maxWidth: '300px' }}
+                value={productSearchQuery}
+                onChange={(e) => setProductSearchQuery(e.target.value)}
+              />
+            </div>
+
             {/* Products Table */}
             <div className="card" style={{ padding: '0', overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
@@ -1627,8 +1711,16 @@ export default function AdminPortal({ onNotification }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map(p => {
-                    let stockBadge = 'badge-success';
+                  {products
+                    .filter(p => {
+                      if (!productSearchQuery) return true;
+                      const q = productSearchQuery.toLowerCase();
+                      return (p.name || '').toLowerCase().includes(q) ||
+                             (p.sku || '').toLowerCase().includes(q) ||
+                             (p.brand || '').toLowerCase().includes(q);
+                    })
+                    .map(p => {
+                      let stockBadge = 'badge-success';
                     if (p.stockQuantity === 0) stockBadge = 'badge-danger';
                     else if (p.stockQuantity <= p.lowStockThreshold) stockBadge = 'badge-warning';
 

@@ -1,6 +1,16 @@
+const getLocalApiUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:5000';
+  if (window.location.port === '8081') {
+    return 'http://localhost:5001';
+  }
+  return 'http://localhost:5000';
+};
+
 export const API_BASE = import.meta.env.VITE_API_URL !== undefined 
   ? import.meta.env.VITE_API_URL 
-  : 'https://billing.abpseeds.com';
+  : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+     ? getLocalApiUrl()
+     : 'https://billing.abpseeds.com');
 
 export const resolveImageUrl = (url, activeBaseUrl) => {
   if (!url) return '';
