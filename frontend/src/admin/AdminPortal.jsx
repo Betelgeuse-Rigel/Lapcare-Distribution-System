@@ -37,6 +37,7 @@ export default function AdminPortal({ onNotification }) {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form payload states
   const [retailerForm, setRetailerForm] = useState({ name: '', mobileNumber: '', email: '', password: '', category: 'T1', creditLimit: 0, assignedSalesmanId: '', creditTermApproved: 'none', creditRequestStatus: 'none' });
@@ -442,6 +443,7 @@ export default function AdminPortal({ onNotification }) {
 
   const handleFileUpload = async (file, callback) => {
     if (!file) return;
+    setIsUploading(true);
     const formData = new FormData();
     formData.append('image', file);
 
@@ -462,6 +464,8 @@ export default function AdminPortal({ onNotification }) {
       }
     } catch (err) {
       onNotification('error', `Upload error: ${err.message}`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -1660,7 +1664,9 @@ export default function AdminPortal({ onNotification }) {
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                     <button type="button" onClick={() => setCategoryModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Category</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUploading}>
+                      {isUploading ? 'Uploading...' : 'Save Category'}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -1925,7 +1931,9 @@ export default function AdminPortal({ onNotification }) {
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                     <button type="button" onClick={() => setProductModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUploading}>
+                      {isUploading ? 'Uploading...' : 'Save'}
+                    </button>
                   </div>
                 </form>
               </div>
