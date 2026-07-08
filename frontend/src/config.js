@@ -8,9 +8,11 @@ const getLocalApiUrl = () => {
 
 export const API_BASE = import.meta.env.VITE_API_URL !== undefined 
   ? import.meta.env.VITE_API_URL 
-  : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-     ? getLocalApiUrl()
-     : 'https://billing.abpseeds.com');
+  : (typeof window !== 'undefined' && window.Capacitor
+     ? 'https://billing.abpseeds.com'
+     : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? getLocalApiUrl()
+        : 'https://billing.abpseeds.com'));
 
 export const resolveImageUrl = (url, activeBaseUrl) => {
   if (!url) return '';
