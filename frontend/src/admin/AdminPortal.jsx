@@ -85,6 +85,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setDashboardData(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -99,6 +101,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setRetailers(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -113,6 +117,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setSalesmen(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -127,6 +133,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setProducts(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -141,6 +149,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -155,6 +165,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setDues(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -169,6 +181,8 @@ export default function AdminPortal({ onNotification }) {
       if (res.ok) {
         const data = await res.json();
         setCategories(data);
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
@@ -189,6 +203,8 @@ export default function AdminPortal({ onNotification }) {
         if (cod) setCodCharge(parseFloat(cod.flatCharge));
         if (due7) setDue7Rate(parseFloat(due7.percentageRate));
         if (due15) setDue15Rate(parseFloat(due15.percentageRate));
+      } else if (res.status === 401) {
+        handleLogout();
       }
     } catch (err) {
       console.error(err);
