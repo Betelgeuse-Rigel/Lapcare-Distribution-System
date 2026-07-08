@@ -7,12 +7,13 @@ import DeviceFrame from './components/DeviceFrame';
 export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
   const isMobileApp = 
-    queryParams.get('standalone') === 'true' || 
-    window.innerWidth <= 768 || 
-    (typeof window !== 'undefined' && window.Capacitor);
+    (queryParams.get('standalone') === 'true' || 
+     window.innerWidth <= 768 || 
+     (typeof window !== 'undefined' && window.Capacitor)) &&
+    queryParams.get('view') !== 'admin';
 
   const [activePortal, setActivePortal] = useState(
-    isMobileApp || queryParams.get('view') === 'mobile' ? 'mobile' : 'admin'
+    queryParams.get('view') === 'admin' ? 'admin' : (isMobileApp || queryParams.get('view') === 'mobile' ? 'mobile' : 'admin')
   );
   const [toasts, setToasts] = useState([]);
 
