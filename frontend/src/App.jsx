@@ -8,7 +8,11 @@ export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
   const isMobileApp = 
     queryParams.get('standalone') === 'true' || 
-    (typeof window !== 'undefined' && !!window.Capacitor);
+    (typeof window !== 'undefined' && (
+      !!window.Capacitor || 
+      window.location.protocol === 'capacitor:' || 
+      (window.location.hostname === 'localhost' && window.location.port === '')
+    ));
 
   const [activePortal, setActivePortal] = useState(
     isMobileApp || queryParams.get('view') === 'mobile' ? 'mobile' : 'admin'
