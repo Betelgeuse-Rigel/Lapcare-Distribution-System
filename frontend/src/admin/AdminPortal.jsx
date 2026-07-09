@@ -732,7 +732,7 @@ export default function AdminPortal({ onNotification }) {
             <label style={{ color: '#cbd5e1' }}>Admin Email</label>
             <input 
               type="email" 
-              placeholder="admin@company.com" 
+              placeholder="" 
               className="form-control"
               style={{ background: '#0f172a', border: '1px solid #475569', color: 'white' }}
               value={email}

@@ -2366,32 +2366,6 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
         background: '#fff',
         position: 'relative'
       }}>
-        {/* Settings button on login screen */}
-        <button
-          onClick={() => {
-            setTempServerUrl(serverUrl);
-            setShowSettingsModal(true);
-          }}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            background: 'rgba(0, 0, 0, 0.05)',
-            border: 'none',
-            borderRadius: '50%',
-            width: '36px',
-            height: '36px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'var(--text-light)',
-            zIndex: 1000
-          }}
-          title="App Settings"
-        >
-          <Settings size={18} />
-        </button>
         {/* Brand header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{
