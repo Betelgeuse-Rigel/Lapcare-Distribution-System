@@ -54,7 +54,7 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 app.use(morgan('dev'));
-app.use('/uploads', express.static(uploadDir));
+app.use('/api/uploads', express.static(uploadDir));
 
 // Shared Live Log Queue for Frontend OTP/FCM Simulation
 let liveLogs = [];
@@ -1355,7 +1355,7 @@ app.post('/api/admin/upload', authenticateAdmin, upload.single('image'), (req, r
   if (!req.file) {
     return res.status(400).json({ error: 'No image file provided' });
   }
-  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  const fileUrl = `${req.protocol}://${req.get('host')}/api/uploads/${req.file.filename}`;
   res.json({ success: true, url: fileUrl });
 });
 

@@ -26,10 +26,11 @@ export const resolveImageUrl = (url, activeBaseUrl) => {
   
   const baseUrl = activeBaseUrl || API_BASE;
   
-  // If the URL contains /uploads/ (relative or absolute), convert it to use current baseUrl
+  // If the URL contains /uploads/ (relative or absolute), convert it to use current baseUrl with /api prefix
   if (url.includes('/uploads/')) {
     const idx = url.indexOf('/uploads/');
-    return `${baseUrl}${url.substring(idx)}`;
+    const filename = url.substring(idx + 9); // length of '/uploads/'
+    return `${baseUrl}/api/uploads/${filename}`;
   }
   
   if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1') || url.startsWith('http://10.0.2.2')) {
