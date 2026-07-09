@@ -2286,7 +2286,7 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                 <Lock size={16} color="var(--text-light)" style={{ position: 'absolute', left: '10px', top: '10px' }} />
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter secret password"
+                  placeholder="Enter password"
                   className="form-control"
                   style={{ paddingLeft: '32px', paddingRight: '36px' }}
                   value={password}

@@ -14,7 +14,7 @@ with sync_playwright() as p:
     # Log in as Retailer A
     print("Logging in to mobile app as Retailer...")
     page.fill('input[placeholder="Enter 10-digit number"]', '9000000001')
-    page.fill('input[placeholder="Enter secret password"]', 'password123')
+    page.fill('input[placeholder="Enter password"]', 'password123')
     page.click('button:has-text("Access Portal")')
     page.wait_for_timeout(4000)
     

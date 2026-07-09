@@ -14,7 +14,7 @@ with sync_playwright() as p:
     
     if has_mobile_portal:
         page.fill('input[placeholder="Enter 10-digit number"]', '9000000001')
-        page.fill('input[placeholder="Enter secret password"]', 'password123')
+        page.fill('input[placeholder="Enter password"]', 'password123')
         page.locator('button:has-text("Access Portal")').click()
         page.wait_for_timeout(3000)
         page.wait_for_load_state('networkidle')
