@@ -55,6 +55,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 app.use(morgan('dev'));
 app.use('/api/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDir));
 
 // Shared Live Log Queue for Frontend OTP/FCM Simulation
 let liveLogs = [];
