@@ -37,6 +37,7 @@ const {
   RetailerAddress,
   ProductCategory,
   Product,
+  ProductReview,
   Order,
   OrderItem,
   DuePayment,
@@ -733,6 +734,62 @@ app.get('/api/products/categories', authenticateToken, enforceRole(['retailer', 
   try {
     const categories = await ProductCategory.findAll({ where: { isActive: true }, order: [['sortOrder', 'ASC']] });
     res.json(categories);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/products/:productId/reviews
+app.get('/api/products/:productId/reviews', authenticateToken, async (req, res) => {
+  try {
+    const reviews = await ProductReview.findAll({
+      where: { productId: req.params.productId },
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(reviews);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/products/:productId/reviews
+app.post('/api/products/:productId/reviews', authenticateToken, async (req, res) => {
+  const { rating, comment } = req.body;
+  if (!rating) {
+    return res.status(400).json({ error: 'Rating is required' });
+  }
+  
+  try {
+    let reviewerName = 'Anonymous';
+    let retailerId = null;
+    
+    if (req.user.role === 'retailer') {
+      const retailer = await Retailer.findByPk(req.user.id);
+      if (retailer) {
+        reviewerName = retailer.name;
+        retailerId = retailer.id;
+      }
+    } else if (req.user.role === 'salesman') {
+      const salesman = await Salesman.findByPk(req.user.id);
+      if (salesman) {
+        reviewerName = salesman.name;
+      }
+    } else if (req.user.role === 'admin') {
+      const admin = await AdminUser.findByPk(req.user.id);
+      if (admin) {
+        reviewerName = admin.name;
+      }
+    }
+    
+    const review = await ProductReview.create({
+      productId: req.params.productId,
+      retailerId,
+      reviewerName,
+      rating: parseFloat(rating),
+      comment
+    });
+    
+    res.json(review);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

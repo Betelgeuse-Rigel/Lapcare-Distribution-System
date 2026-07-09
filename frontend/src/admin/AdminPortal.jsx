@@ -1874,6 +1874,16 @@ export default function AdminPortal({ onNotification }) {
                       {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
+                  <div className="form-group">
+                    <label>Description & Details</label>
+                    <textarea 
+                      className="form-control" 
+                      style={{ minHeight: '60px', resize: 'vertical' }}
+                      value={productForm.description || ''} 
+                      onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} 
+                      placeholder="e.g. Official genuine hardware component backed by comprehensive brand warranty..."
+                    />
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
                     <div className="form-group">
                       <label>T1 Price (₹)</label>

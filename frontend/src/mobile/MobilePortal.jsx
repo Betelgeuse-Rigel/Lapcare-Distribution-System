@@ -63,6 +63,12 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   const [dues, setDues] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
+  // Product reviews and submission states
+  const [productReviews, setProductReviews] = useState([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
   // Address CRUD modal
   const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [addressForm, setAddressForm] = useState({ label: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '', isDefault: false });
@@ -137,6 +143,100 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       };
     }
   }, [navHistory, screen, activeTab, selectedOrder, selectedProduct, selectedRetailer, onBehalfRetailer]);
+
+  // Swipe to go back gesture detection
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    };
+    
+    const handleTouchEnd = (e) => {
+      if (e.changedTouches.length === 1) {
+        const deltaX = e.changedTouches[0].clientX - startX;
+        const deltaY = e.changedTouches[0].clientY - startY;
+        
+        // Swipe from left edge of screen to right (standard back gesture)
+        const isSwipeBack = startX < 80 && deltaX > 80 && Math.abs(deltaY) < 60;
+        
+        if (isSwipeBack) {
+          console.log("Swipe back gesture detected, going back...");
+          goBack();
+        }
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [navHistory, screen, activeTab, selectedOrder, selectedProduct, selectedRetailer, onBehalfRetailer]);
+
+  // Fetch product reviews dynamically
+  useEffect(() => {
+    if (selectedProduct) {
+      fetch(`${serverUrl}/api/products/${selectedProduct.id}/reviews`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProductReviews(data);
+        } else {
+          setProductReviews([]);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch reviews:", err);
+        setProductReviews([]);
+      });
+    } else {
+      setProductReviews([]);
+    }
+  }, [selectedProduct, token, serverUrl]);
+
+  // Submit product review to backend
+  const handleSubmitReview = async () => {
+    if (!selectedProduct) return;
+    if (!reviewComment.trim()) {
+      alert("Please write a comment for your review");
+      return;
+    }
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch(`${serverUrl}/api/products/${selectedProduct.id}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          rating: reviewRating,
+          comment: reviewComment
+        })
+      });
+      if (res.ok) {
+        const newReview = await res.json();
+        setProductReviews(prev => [newReview, ...prev]);
+        setReviewComment('');
+        setReviewRating(5);
+      } else {
+        alert("Failed to submit review");
+      }
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      alert("Error submitting review");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Auto transition splash screen
   useEffect(() => {
@@ -1573,23 +1673,76 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0 }}>Verified Partner Reviews</h4>
               <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#d97706', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                ⭐ 4.9 Rating
+                ⭐ {productReviews.length > 0 ? (productReviews.reduce((sum, r) => sum + parseFloat(r.rating), 0) / productReviews.length).toFixed(1) : 'N/A'} Rating
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-                  <strong>Tech Solutions Retailers Ltd</strong>
-                  <span style={{ color: '#d97706' }}>⭐⭐⭐⭐⭐</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+              {productReviews.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '10px', color: 'var(--text-light)', fontSize: '0.7rem' }}>
+                  No reviews yet. Be the first to review this product!
                 </div>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', margin: '2px 0 0' }}>"Fast moving stock item. High build quality and great retailer margins!"</p>
-              </div>
-              <div style={{ background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-                  <strong>Apex Computer Systems</strong>
-                  <span style={{ color: '#d97706' }}>⭐⭐⭐⭐⭐</span>
+              ) : (
+                productReviews.map((rev, idx) => (
+                  <div key={idx} style={{ background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+                      <strong>{rev.reviewerName}</strong>
+                      <span style={{ color: '#d97706' }}>
+                        {'⭐'.repeat(Math.max(1, Math.min(5, Math.round(parseFloat(rev.rating)))))}
+                      </span>
+                    </div>
+                    {rev.comment && (
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', margin: '2px 0 0' }}>
+                        "{rev.comment}"
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {/* Add Review Form */}
+            <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
+              <h5 style={{ fontSize: '0.75rem', fontWeight: 'bold', margin: '0 0 6px 0', color: 'var(--text-main)' }}>Add Your Review</h5>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Rating:</span>
+                  <select 
+                    value={reviewRating} 
+                    onChange={(e) => setReviewRating(parseFloat(e.target.value))}
+                    style={{ fontSize: '0.7rem', padding: '2px 4px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                  >
+                    <option value="5">5 ⭐⭐⭐⭐⭐</option>
+                    <option value="4">4 ⭐⭐⭐⭐</option>
+                    <option value="3">3 ⭐⭐⭐</option>
+                    <option value="2">2 ⭐⭐</option>
+                    <option value="1">1 ⭐</option>
+                  </select>
                 </div>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', margin: '2px 0 0' }}>"Authentic brand hardware. Zero return rate across 50+ units sold."</p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Write your review here..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    style={{ flex: 1, fontSize: '0.7rem', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-color)', background: '#f8fafc' }}
+                  />
+                  <button 
+                    onClick={handleSubmitReview}
+                    disabled={isSubmittingReview}
+                    style={{ 
+                      padding: '4px 10px', 
+                      fontSize: '0.7rem', 
+                      backgroundColor: 'var(--primary)', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '4px', 
+                      fontWeight: 'bold',
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    {isSubmittingReview ? '...' : 'Submit'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

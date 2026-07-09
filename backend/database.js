@@ -191,6 +191,13 @@ const Notification = sequelize.define('Notification', {
   timestamps: false
 });
 
+// Product Reviews model
+const ProductReview = sequelize.define('ProductReview', {
+  reviewerName: { type: DataTypes.STRING, allowNull: false },
+  rating: { type: DataTypes.DECIMAL(2, 1), allowNull: false },
+  comment: { type: DataTypes.TEXT, allowNull: true }
+});
+
 // Setup Relationships
 
 // Salesman <-> Targets
@@ -208,6 +215,14 @@ RetailerAddress.belongsTo(Retailer, { foreignKey: 'retailerId' });
 // ProductCategory <-> Product
 ProductCategory.hasMany(Product, { foreignKey: 'categoryId', onDelete: 'RESTRICT' });
 Product.belongsTo(ProductCategory, { foreignKey: 'categoryId' });
+
+// Product <-> ProductReview
+Product.hasMany(ProductReview, { foreignKey: 'productId', onDelete: 'CASCADE' });
+ProductReview.belongsTo(Product, { foreignKey: 'productId' });
+
+// Retailer <-> ProductReview
+Retailer.hasMany(ProductReview, { foreignKey: 'retailerId', onDelete: 'SET NULL' });
+ProductReview.belongsTo(Retailer, { foreignKey: 'retailerId' });
 
 // Retailer <-> Order
 Retailer.hasMany(Order, { foreignKey: 'retailerId', onDelete: 'RESTRICT' });
@@ -246,6 +261,7 @@ module.exports = {
   RetailerAddress,
   ProductCategory,
   Product,
+  ProductReview,
   Order,
   OrderItem,
   DuePayment,
