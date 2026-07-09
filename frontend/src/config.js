@@ -26,8 +26,10 @@ export const resolveImageUrl = (url, activeBaseUrl) => {
   
   const baseUrl = activeBaseUrl || API_BASE;
   
-  if (url.startsWith('/uploads/')) {
-    return `${baseUrl}${url}`;
+  // If the URL contains /uploads/ (relative or absolute), convert it to use current baseUrl
+  if (url.includes('/uploads/')) {
+    const idx = url.indexOf('/uploads/');
+    return `${baseUrl}${url.substring(idx)}`;
   }
   
   if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1') || url.startsWith('http://10.0.2.2')) {

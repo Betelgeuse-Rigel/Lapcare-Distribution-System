@@ -2176,6 +2176,23 @@ app.post('/api/admin/cron/check-overdue', async (req, res) => {
   }
 });
 
+app.get('/api/debug-uploads', (req, res) => {
+  try {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (fs.existsSync(uploadDir)) {
+      res.json({
+        exists: true,
+        path: uploadDir,
+        files: fs.readdirSync(uploadDir)
+      });
+    } else {
+      res.json({ exists: false, path: uploadDir });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Server Listen
 sequelize.authenticate().then(async () => {
   console.log('Connected to PostgreSQL successfully via Sequelize.');

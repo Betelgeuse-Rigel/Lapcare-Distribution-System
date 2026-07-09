@@ -8,18 +8,14 @@ const main = async () => {
   const token = loginData.token;
 
   if (token) {
-    const prodRes = await fetch("https://billing.abpseeds.com/api/admin/products", {
+    const res = await fetch("https://billing.abpseeds.com/api/admin/retailers", {
       headers: { "Authorization": `Bearer ${token}` }
     });
-    const products = await prodRes.json();
-    const kimchi = products.find(p => p.name.toLowerCase().includes("permanent"));
-    if (kimchi) {
-      console.log("FOUND PERMANENT PRODUCT IN DB:");
-      console.log(JSON.stringify(kimchi, null, 2));
-    } else {
-      console.log("Product not found.");
-      console.log("Available products:", products.map(p => p.name));
-    }
+    const retailers = await res.json();
+    console.log("RETAILERS:");
+    retailers.forEach(r => {
+      console.log(`ID: ${r.id}, Name: ${r.name}, Mobile: ${r.mobileNumber}, Email: ${r.email}`);
+    });
   } else {
     console.log("Failed to log in.");
   }
