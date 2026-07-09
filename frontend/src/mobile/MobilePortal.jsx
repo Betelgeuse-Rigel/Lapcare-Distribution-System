@@ -238,10 +238,26 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
     }
   };
 
-  // Auto transition splash screen
+  // Auto transition splash screen and auto-login if session exists
   useEffect(() => {
     if (screen === 'splash') {
       const timer = setTimeout(() => {
+        const savedToken = localStorage.getItem('mobile_token');
+        const savedUser = localStorage.getItem('mobile_user');
+        if (savedToken && savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            setToken(savedToken);
+            setUser(parsedUser);
+            setScreen('main');
+            setActiveTab(parsedUser.role === 'salesman' ? 'dashboard' : 'home');
+            return;
+          } catch (e) {
+            console.error("Failed to parse saved session", e);
+            localStorage.removeItem('mobile_token');
+            localStorage.removeItem('mobile_user');
+          }
+        }
         setScreen('login');
       }, 2000);
       return () => clearTimeout(timer);
@@ -465,6 +481,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       });
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('mobile_token', data.token);
+        localStorage.setItem('mobile_user', JSON.stringify(data.user));
         setToken(data.token);
         setUser(data.user);
         setScreen('main');
@@ -495,6 +513,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       }
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('mobile_token', data.token);
+        localStorage.setItem('mobile_user', JSON.stringify(data.user));
         setToken(data.token);
         setUser(data.user);
         setScreen('main');
@@ -535,6 +555,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       }
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('mobile_token', data.token);
+        localStorage.setItem('mobile_user', JSON.stringify(data.user));
         setToken(data.token);
         setUser(data.user);
         setScreen('main');
@@ -555,6 +577,8 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('mobile_token');
+    localStorage.removeItem('mobile_user');
     setUser(null);
     setToken(null);
     setScreen('login');
