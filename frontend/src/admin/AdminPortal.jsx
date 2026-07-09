@@ -443,9 +443,9 @@ export default function AdminPortal({ onNotification }) {
 
   const handleFileUpload = async (file, callback) => {
     if (!file) return;
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_SIZE = 20 * 1024 * 1024; // 20MB
     if (file.size > MAX_SIZE) {
-      onNotification('error', 'File size exceeds the 10MB limit.');
+      onNotification('error', 'the image size is exceeding the limit of 20 MB');
       return;
     }
     setIsUploading(true);
@@ -1648,7 +1648,7 @@ export default function AdminPortal({ onNotification }) {
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Or Upload (Max 10MB):</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Or Upload (Max 20MB):</span>
                         <input 
                           type="file" 
                           accept="image/*"
@@ -1919,7 +1919,7 @@ export default function AdminPortal({ onNotification }) {
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Or Upload (Max 10MB):</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Or Upload (Max 20MB):</span>
                         <input 
                           type="file" 
                           accept="image/*"
