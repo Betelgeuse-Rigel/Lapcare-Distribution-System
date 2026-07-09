@@ -2553,54 +2553,6 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
             </div>
           </div>
 
-          {/* Navigation top bar inside frame */}
-          <div style={{
-            background: 'white',
-            borderBottom: '1px solid var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-around',
-            padding: '6px 0',
-            flexShrink: 0
-          }}>
-            {user.role === 'retailer' ? (
-              <>
-                <button onClick={() => { pushHistory(); setActiveTab('home'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'home' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'home' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  🏠 <span>Home</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('products'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'products' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'products' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  📦 <span>Catalog</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('orders'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  📋 <span>Orders</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('dues'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  💰 <span>Dues</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('profile'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  👤 <span>Profile</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => { pushHistory(); setActiveTab('dashboard'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dashboard' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  📈 <span>Dashboard</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('retailers'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'retailers' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'retailers' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  👥 <span>Retailers</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('orders'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  📋 <span>Orders</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('dues'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  💰 <span>Dues</span>
-                </button>
-                <button onClick={() => { pushHistory(); setActiveTab('profile'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  👤 <span>Profile</span>
-                </button>
-              </>
-            )}
-          </div>
-
           {/* Content body based on active tabs */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {user.role === 'retailer' ? (
@@ -2621,6 +2573,64 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
                 {activeTab === 'orders' && renderRetailerOrders()}
                 {activeTab === 'dues' && renderRetailerDues()}
                 {activeTab === 'profile' && renderRetailerProfile()}
+              </>
+            )}
+          </div>
+
+          {/* Navigation bottom bar inside frame */}
+          <div style={{
+            background: 'white',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            justifyContent: 'space-around',
+            padding: '6px 0',
+            flexShrink: 0
+          }}>
+            {user.role === 'retailer' ? (
+              <>
+                <button onClick={() => { pushHistory(); setActiveTab('home'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'home' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'home' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>🏠</span>
+                  <span>Home</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('products'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'products' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'products' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>📦</span>
+                  <span>Catalog</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('orders'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>📋</span>
+                  <span>Orders</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('dues'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>💰</span>
+                  <span>Dues</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('profile'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>👤</span>
+                  <span>Profile</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => { pushHistory(); setActiveTab('dashboard'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dashboard' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>📈</span>
+                  <span>Dashboard</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('retailers'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'retailers' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'retailers' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>👥</span>
+                  <span>Retailers</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('orders'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'orders' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'orders' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>📋</span>
+                  <span>Orders</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('dues'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'dues' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'dues' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>💰</span>
+                  <span>Dues</span>
+                </button>
+                <button onClick={() => { pushHistory(); setActiveTab('profile'); }} style={{ flex: 1, background: 'none', border: 'none', color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-light)', fontSize: '0.6rem', fontWeight: activeTab === 'profile' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', marginBottom: '2px' }}>👤</span>
+                  <span>Profile</span>
+                </button>
               </>
             )}
           </div>
