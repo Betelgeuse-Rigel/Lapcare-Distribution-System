@@ -459,7 +459,11 @@ export default function MobilePortal({ onNotification: parentOnNotification }) {
       if (res.ok) {
         setOtpSent(true);
         setOtpCode(data.simulatedOtp || '');
-        onNotification('success', `OTP Sent! Simulated OTP is: ${data.simulatedOtp}`);
+        if (data.simulatedOtp) {
+          onNotification('success', `OTP Sent! Simulated OTP is: ${data.simulatedOtp}`);
+        } else {
+          onNotification('success', 'OTP Sent! Please enter the code received on your mobile number.');
+        }
       } else {
         onNotification('error', data.error || 'Failed to send OTP');
       }

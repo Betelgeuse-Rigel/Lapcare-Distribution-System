@@ -27,6 +27,8 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password123
       PORT: 5000
+      MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+      MSG91_TEMPLATE_ID: ${MSG91_TEMPLATE_ID:-}
     ports:
       - "5001:5000"
     volumes:

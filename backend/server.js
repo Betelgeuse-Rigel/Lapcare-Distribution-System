@@ -185,11 +185,63 @@ app.post('/api/auth/send-otp', async (req, res) => {
     user.otpExpiresAt = otpExpiresAt;
     await user.save();
 
-    // Log the OTP simulation
-    addLiveLog('SMS', mobileNumber, `[MSG91] OTP to login as ${role} (${user.name}) is: ${otp}. Expires in 5 minutes.`);
-    console.log(`[SMS OTP] Mobile: ${mobileNumber} | OTP: ${otp} | Role: ${role}`);
+    const msg91AuthKey = process.env.MSG91_AUTH_KEY || '';
+    const msg91TemplateId = process.env.MSG91_TEMPLATE_ID || '';
 
-    res.json({ success: true, message: 'OTP sent successfully', simulatedOtp: otp });
+    let sentViaMsg91 = false;
+    let msg91Error = null;
+
+    if (typeof fetch === 'function' && 
+        msg91AuthKey && msg91AuthKey !== 'your_actual_msg91_auth_key' && 
+        msg91TemplateId && msg91TemplateId !== 'your_actual_msg91_template_id' && 
+        msg91TemplateId !== 'your_msg91_template_id') {
+      try {
+        // Prepend country code '91' for India if it's a 10-digit number
+        let formattedMobile = mobileNumber;
+        if (/^\d{10}$/.test(mobileNumber)) {
+          formattedMobile = `91${mobileNumber}`;
+        }
+
+        const response = await fetch('https://control.msg91.com/api/v5/otp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'authkey': msg91AuthKey
+          },
+          body: JSON.stringify({
+            template_id: msg91TemplateId,
+            mobile: formattedMobile,
+            otp: otp
+          })
+        });
+
+        const responseText = await response.text();
+        console.log(`[MSG91] OTP send request to ${formattedMobile}. Status: ${response.status}. Response: ${responseText}`);
+
+        if (response.ok) {
+          sentViaMsg91 = true;
+          addLiveLog('SMS', mobileNumber, `[MSG91] Real OTP sent via SMS gateway successfully.`);
+        } else {
+          msg91Error = `MSG91 API error (status ${response.status}): ${responseText}`;
+        }
+      } catch (err) {
+        console.error('Failed to send OTP via MSG91:', err);
+        msg91Error = err.message;
+      }
+    }
+
+    if (sentViaMsg91) {
+      res.json({ success: true, message: 'OTP sent successfully via SMS', simulatedOtp: null });
+    } else {
+      // Log the OTP simulation
+      let logMessage = `[MSG91 Simulation] OTP to login as ${role} (${user.name}) is: ${otp}. Expires in 5 minutes.`;
+      if (msg91AuthKey) {
+        logMessage = `[MSG91 Fallback Simulation] (MSG91 Error: ${msg91Error || 'Missing valid Template ID'}) OTP to login as ${role} (${user.name}) is: ${otp}.`;
+      }
+      addLiveLog('SMS', mobileNumber, logMessage);
+      console.log(`[SMS OTP Simulation] Mobile: ${mobileNumber} | OTP: ${otp} | Role: ${role}`);
+      res.json({ success: true, message: 'OTP sent successfully (Simulated)', simulatedOtp: otp });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
